@@ -99,10 +99,10 @@ class Engine:
             raise MirageError("عنوان IP أو رقم المنفذ غير صالح.")
 
     def stream(self, serial: str | None = None, codec: str = "h264",
-               max_fps: int = 60, bit_rate: str = "24M",
+               max_fps: int = 60, bit_rate: str = "40M",
                fullscreen: bool = False, max_size: int | None = None,
                extra_args: Sequence[str] = ()) -> subprocess.Popen:
-        """Start a source-resolution stream with a balanced high-quality bitrate.
+        """Start a source-resolution stream with a high-quality bitrate with additional compression headroom.
 
         max_size is intentionally omitted by default: scrcpy then captures the
         device's native display size. Upscaling the desktop window cannot create
@@ -114,7 +114,7 @@ class Engine:
         if not 1 <= max_fps <= 240:
             raise MirageError("معدل الإطارات يجب أن يكون بين 1 و240.")
         if not bit_rate or any(c.isspace() for c in bit_rate) or bit_rate.startswith("-"):
-            raise MirageError("قيمة معدل البت غير صالحة، مثال: 24M.")
+            raise MirageError("قيمة معدل البت غير صالحة، مثال: 40M.")
         args: list[str] = []
         if serial:
             args += ["--serial", serial]
