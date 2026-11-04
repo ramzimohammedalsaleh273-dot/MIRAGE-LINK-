@@ -1,6 +1,7 @@
 import subprocess
 import pytest
 from mirage_link.engine import Engine, MirageError, Device
+from mirage_link.cli import build_parser
 
 
 class Result:
@@ -46,7 +47,7 @@ def test_connect_uses_argument_array_not_shell(tmp_path):
     assert seen[0][0] == [adb, "connect", "192.168.1.10:5555"]
 
 
-def test_stream_builds_expected_scrcpy_args(tmp_path):
+def test_stream_defaults_to_native_capture_and_balanced_high_quality(tmp_path):
     scrcpy = fake_tool(tmp_path, "scrcpy")
     seen = []
     class Proc:
@@ -55,14 +56,31 @@ def test_stream_builds_expected_scrcpy_args(tmp_path):
         seen.append((args, kwargs))
         return Proc()
     engine = Engine(scrcpy_path=scrcpy, popen=popen)
-    proc = engine.stream("ABC", "h264", 60, "16M", True, 1920)
+    proc = engine.stream("ABC")
     assert proc.pid == 42
     assert seen[0][0] == [
         scrcpy, "--serial", "ABC", "--video-codec", "h264",
-        "--max-fps", "60", "--video-bit-rate", "16M", "--stay-awake",
-        "--fullscreen", "--max-size", "1920"
+        "--max-fps", "60", "--video-bit-rate", "24M", "--stay-awake"
     ]
+    assert "--max-size" not in seen[0][0]
     assert seen[0][1]["shell"] is False
+
+
+def test_stream_allows_explicit_source_size_cap_when_requested(tmp_path):
+    scrcpy = fake_tool(tmp_path, "scrcpy")
+    seen = []
+    engine = Engine(scrcpy_path=scrcpy, popen=lambda args, **kwargs: seen.append(args))
+    engine.stream(max_size=1920)
+    assert "--max-size" in seen[0]
+    assert seen[0][seen[0].index("--max-size") + 1] == "1920"
+
+
+def test_cli_stream_defaults_are_quality_preserving():
+    args = build_parser().parse_args(["stream"])
+    assert args.codec == "h264"
+    assert args.max_fps == 60
+    assert args.bit_rate == "24M"
+    assert args.max_size is None
 
 
 @pytest.mark.parametrize("kwargs", [
