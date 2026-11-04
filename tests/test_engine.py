@@ -60,7 +60,7 @@ def test_stream_defaults_to_native_capture_and_balanced_high_quality(tmp_path):
     assert proc.pid == 42
     assert seen[0][0] == [
         scrcpy, "--serial", "ABC", "--video-codec", "h264",
-        "--max-fps", "60", "--video-bit-rate", "24M", "--stay-awake"
+        "--max-fps", "60", "--video-bit-rate", "40M", "--stay-awake"
     ]
     assert "--max-size" not in seen[0][0]
     assert seen[0][1]["shell"] is False
