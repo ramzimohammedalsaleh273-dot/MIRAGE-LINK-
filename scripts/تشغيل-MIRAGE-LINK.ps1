@@ -29,9 +29,9 @@ switch ($Action) {
   "doctor"  { py -m mirage_link doctor }
   "devices" { py -m mirage_link devices }
   "stream"  {
-    $args = @("-m","mirage_link","stream","--fullscreen")
-    if ($Serial) { $args += @("--serial",$Serial) }
-    py @args
+    $cliArgs = @("-m","mirage_link","stream","--fullscreen")
+    if ($Serial) { $cliArgs += @("--serial",$Serial) }
+    py @cliArgs
   }
   "help"    { py -m mirage_link --help }
 }
