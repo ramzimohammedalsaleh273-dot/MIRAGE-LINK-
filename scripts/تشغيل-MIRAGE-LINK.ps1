@@ -28,7 +28,8 @@ if ($LASTEXITCODE -ne 0) { throw "إصدار Python غير مدعوم." }
 switch ($Action) {
   "doctor"  { py -m mirage_link doctor }
   "devices" { py -m mirage_link devices }
-  "gui"     { py -m mirage_link.gui }\n  "stream"  {
+  "gui"     { py -m mirage_link.gui }
+  "stream"  {
     $cliArgs = @("-m","mirage_link","stream","--fullscreen")
     if ($Serial) { $cliArgs += @("--serial",$Serial) }
     py @cliArgs
