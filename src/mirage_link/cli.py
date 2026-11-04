@@ -19,13 +19,14 @@ def build_parser() -> argparse.ArgumentParser:
     t = sub.add_parser("tcpip", help="تفعيل ADB TCP/IP بعد توصيل USB")
     t.add_argument("port", nargs="?", type=int, default=5555)
     t.add_argument("--serial")
-    s = sub.add_parser("stream", help="بدء بث الشاشة")
+    s = sub.add_parser("stream", help="بدء بث الشاشة بجودتها الأصلية ومعدل بت مرتفع")
     s.add_argument("--serial")
     s.add_argument("--codec", choices=["auto", "h264", "h265"], default="h264")
     s.add_argument("--max-fps", type=int, default=60)
-    s.add_argument("--bit-rate", default="16M")
+    s.add_argument("--bit-rate", default="24M")
     s.add_argument("--fullscreen", action="store_true")
-    s.add_argument("--max-size", type=int)
+    s.add_argument("--max-size", type=int,
+                   help="اختياري فقط: يقيّد حجم الالتقاط؛ اتركه فارغاً للحفاظ على الدقة الأصلية")
     return parser
 
 
@@ -60,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise MirageError("هناك عدة أجهزة. حدّد الجهاز باستخدام --serial SERIAL.")
                 serial = ready[0].serial
             print(f"بدء البث للجهاز: {serial}")
+            print("ملف الجودة: طبيعي مرتفع — دقة المصدر الأصلية دون تصغير — 24M — حتى 60 إطاراً/ثانية")
             process = engine.stream(serial, args.codec, args.max_fps, args.bit_rate,
                                     args.fullscreen, args.max_size)
             print(f"تم تشغيل scrcpy (PID: {process.pid}). أغلق نافذة العرض لإنهاء البث.")
