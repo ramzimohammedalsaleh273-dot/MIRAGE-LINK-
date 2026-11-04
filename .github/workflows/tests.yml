@@ -1,0 +1,19 @@
+name: Phase 1 tests
+on:
+  push:
+    branches: [main, "phase1/**"]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest
