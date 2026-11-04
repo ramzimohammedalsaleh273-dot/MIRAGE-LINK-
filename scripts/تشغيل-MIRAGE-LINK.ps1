@@ -1,4 +1,4 @@
-param(
+﻿param(
   [ValidateSet("doctor","devices","stream","help")]
   [string]$Action = "doctor",
   [string]$Serial = "",
