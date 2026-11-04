@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--serial")
     s.add_argument("--codec", choices=["auto", "h264", "h265"], default="h264")
     s.add_argument("--max-fps", type=int, default=60)
-    s.add_argument("--bit-rate", default="24M")
+    s.add_argument("--bit-rate", default="40M")
     s.add_argument("--fullscreen", action="store_true")
     s.add_argument("--max-size", type=int,
                    help="اختياري فقط: يقيّد حجم الالتقاط؛ اتركه فارغاً للحفاظ على الدقة الأصلية")
@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
                     raise MirageError("هناك عدة أجهزة. حدّد الجهاز باستخدام --serial SERIAL.")
                 serial = ready[0].serial
             print(f"بدء البث للجهاز: {serial}")
-            print("ملف الجودة: طبيعي مرتفع — دقة المصدر الأصلية دون تصغير — 24M — حتى 60 إطاراً/ثانية")
+            print("ملف الجودة: طبيعي مرتفع — دقة المصدر الأصلية دون تصغير — 40M — حتى 60 إطاراً/ثانية")
             process = engine.stream(serial, args.codec, args.max_fps, args.bit_rate,
                                     args.fullscreen, args.max_size)
             print(f"تم تشغيل scrcpy (PID: {process.pid}). أغلق نافذة العرض لإنهاء البث.")
