@@ -79,7 +79,7 @@ def test_cli_stream_defaults_are_quality_preserving():
     args = build_parser().parse_args(["stream"])
     assert args.codec == "h264"
     assert args.max_fps == 60
-    assert args.bit_rate == "24M"
+    assert args.bit_rate == "40M"
     assert args.max_size is None
 
 
