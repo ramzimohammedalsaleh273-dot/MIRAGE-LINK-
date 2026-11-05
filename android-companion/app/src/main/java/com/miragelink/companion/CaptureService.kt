@@ -89,7 +89,6 @@ class CaptureService : Service() {
         }
 
         try {
-            startNetwork()
             val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             projection = manager.getMediaProjection(resultCode, data)
             projection?.registerCallback(object : MediaProjection.Callback() {
@@ -98,6 +97,7 @@ class CaptureService : Service() {
                 }
             }, null)
             startEncoder()
+            startNetwork()
         } catch (e: Exception) {
             stopSelf()
         }
@@ -163,7 +163,7 @@ class CaptureService : Service() {
     }
 
     private fun streamEncoderTo(socket: Socket) {
-        val codec = encoder ?: return
+        val codec = encoder ?: throw IllegalStateException("Video encoder is not ready")
         val output = BufferedOutputStream(socket.getOutputStream(), 256 * 1024)
         val info = MediaCodec.BufferInfo()
         while (running.get() && !socket.isClosed) {
