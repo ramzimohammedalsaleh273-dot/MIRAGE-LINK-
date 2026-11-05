@@ -20,7 +20,7 @@ class MainActivity : Activity() {
         }
         status = TextView(this).apply {
             textSize = 18f
-            text = "MIRAGE LINK — تطبيق الهاتف المساعد\n\nاتصل الكمبيوتر بنقطة اتصال هذا الهاتف أولاً، ثم اسمح بمشاركة الشاشة."
+            text = "MIRAGE LINK — تطبيق الهاتف المساعد\n\nشغّل نقطة اتصال هذا الهاتف، وصِل الكمبيوتر بها، ثم اضغط السماح بمشاركة الشاشة. بعد ذلك سيكتشف الكمبيوتر الهاتف تلقائياً عبر الشبكة المحلية."
         }
         val start = Button(this).apply {
             text = "السماح بعرض الشاشة"
@@ -44,7 +44,7 @@ class MainActivity : Activity() {
                     putExtra(CaptureService.EXTRA_RESULT_DATA, data)
                 }
                 startForegroundService(service)
-                status.text = "تم منح الإذن. خدمة البث الأولية بدأت؛ سيُضاف مستقبل Windows في المرحلة التالية."
+                status.text = "تم السماح بمشاركة الشاشة. افتح MIRAGE LINK على الكمبيوتر واضغط «عرض عبر Wi-Fi». أبقِ هذا التطبيق مفتوحاً أثناء العرض."
             } else {
                 status.text = "لم تمنح إذن مشاركة الشاشة."
             }
