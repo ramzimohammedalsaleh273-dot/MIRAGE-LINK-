@@ -97,3 +97,19 @@ def test_missing_adb_is_actionable():
     engine = Engine(adb_path="/definitely/missing/adb")
     with pytest.raises(MirageError, match="ADB"):
         engine.devices()
+
+
+def test_stream_latency_buffer_and_fps_diagnostics(tmp_path):
+    scrcpy = fake_tool(tmp_path, "scrcpy")
+    seen = []
+    engine = Engine(scrcpy_path=scrcpy, popen=lambda args, **kwargs: seen.append(args))
+    engine.stream("ABC", video_buffer_ms=25, print_fps=True)
+    assert "--video-buffer" in seen[0]
+    assert seen[0][seen[0].index("--video-buffer") + 1] == "25"
+    assert "--print-fps" in seen[0]
+
+
+def test_stream_rejects_invalid_video_buffer(tmp_path):
+    engine = Engine(scrcpy_path=fake_tool(tmp_path, "scrcpy"), popen=lambda *a, **k: None)
+    with pytest.raises(MirageError):
+        engine.stream(video_buffer_ms=501)
