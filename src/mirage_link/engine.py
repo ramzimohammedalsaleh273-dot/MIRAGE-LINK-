@@ -101,6 +101,7 @@ class Engine:
     def stream(self, serial: str | None = None, codec: str = "h264",
                max_fps: int = 60, bit_rate: str = "40M",
                fullscreen: bool = False, max_size: int | None = None,
+               video_buffer_ms: int = 0, print_fps: bool = False,
                extra_args: Sequence[str] = ()) -> subprocess.Popen:
         """Start a source-resolution stream with a high-quality bitrate with additional compression headroom.
 
@@ -115,6 +116,8 @@ class Engine:
             raise MirageError("معدل الإطارات يجب أن يكون بين 1 و240.")
         if not bit_rate or any(c.isspace() for c in bit_rate) or bit_rate.startswith("-"):
             raise MirageError("قيمة معدل البت غير صالحة، مثال: 40M.")
+        if not 0 <= video_buffer_ms <= 500:
+            raise MirageError("مخزن الفيديو يجب أن يكون بين 0 و500 مللي ثانية.")
         args: list[str] = []
         if serial:
             args += ["--serial", serial]
@@ -123,6 +126,10 @@ class Engine:
         args += ["--max-fps", str(max_fps), "--video-bit-rate", bit_rate, "--stay-awake"]
         if fullscreen:
             args.append("--fullscreen")
+        if video_buffer_ms:
+            args += ["--video-buffer", str(video_buffer_ms)]
+        if print_fps:
+            args.append("--print-fps")
         if max_size:
             if not 240 <= max_size <= 8192:
                 raise MirageError("الحد الأقصى للحجم يجب أن يكون بين 240 و8192.")
