@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 
 from .engine import Engine, MirageError
 
@@ -65,11 +66,10 @@ class MirageWindow:
         ttk.Label(
             wifi,
             text=(
-                "1) فعّل نقطة اتصال الهاتف، ثم صِل الكمبيوتر بها.\n"
-                "2) في الهاتف: خيارات المطور ← تصحيح أخطاء USB اللاسلكي، ثم فعّله.\n"
-                "3) اختر «الإقران باستخدام رمز» واكتب عنوان الاقتران والرمز أدناه.\n"
-                "4) ارجع للشاشة الرئيسية لتصحيح الأخطاء اللاسلكي واكتب عنوان IP:PORT الظاهر هناك، ثم اتصل.\n"
-                "مهم: عنوان/منفذ الاقتران يختلف عن عنوان/منفذ الاتصال. لا يلزم إنترنت ولا كابل."
+                "1) شغّل نقطة اتصال أي هاتف، ثم اخترها من شبكات Windows.\\n"
+                "2) فعّل في Android: خيارات المطور ← تصحيح أخطاء USB اللاسلكي.\\n"
+                "3) اضغط «عرض عبر Wi-Fi»؛ سيكتشف البرنامج الهاتف ويتصل به تلقائياً.\\n"
+                "4) في أول اقتران فقط، أدخل رمز الاقتران الذي يظهر على الهاتف. لا كابل ولا إنترنت."
             ),
             justify="right",
             wraplength=700,
@@ -78,15 +78,14 @@ class MirageWindow:
         net.pack(fill="x")
         self.pair_endpoint = tk.StringVar()
         self.connect_endpoint = tk.StringVar()
-        self.code = tk.StringVar()
-        ttk.Label(net, text="عنوان الاقتران").pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.pair_endpoint, justify="center", width=17).pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.code, justify="center", width=9).pack(side="right", padx=3)
-        ttk.Button(net, text="اقتران Wi-Fi", command=self.pair).pack(side="right", padx=3)
-        ttk.Label(net, text="عنوان الاتصال").pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.connect_endpoint, justify="center", width=17).pack(side="right", padx=3)
-        ttk.Button(net, text="اتصال Wi-Fi", command=self.connect).pack(side="right", padx=3)
-        ttk.Button(net, text="اكتشاف الهاتف تلقائياً", command=self.discover_wifi).pack(side="left", padx=3)
+        self.wifi_device = tk.StringVar()
+        self.wifi_device_map: dict[str, str] = {}
+        ttk.Button(net, text="اختيار شبكة Wi-Fi", command=self.select_wifi_network).pack(side="right", padx=3)
+        ttk.Button(net, text="اكتشاف الهاتف", command=self.discover_wifi).pack(side="right", padx=3)
+        ttk.Label(net, text="الهاتف المكتشف").pack(side="right", padx=3)
+        self.wifi_combo = ttk.Combobox(net, textvariable=self.wifi_device, state="readonly", justify="right", width=28)
+        self.wifi_combo.pack(side="right", fill="x", expand=True, padx=3)
+        ttk.Button(net, text="عرض عبر Wi-Fi", command=self.start_wifi).pack(side="left", padx=3)
 
         quality = ttk.LabelFrame(outer, text="أوضاع الجودة والأداء", padding=10)
         quality.pack(fill="x", pady=8)
@@ -186,52 +185,111 @@ class MirageWindow:
         except MirageError as exc:
             self.status.set(str(exc))
 
-    def discover_wifi(self):
-        """Fill wireless debugging endpoints advertised by Android over local mDNS."""
+    def select_wifi_network(self):
+        """Open the native Windows network picker; the user selects any hotspot/router."""
+        if os.name != "nt":
+            messagebox.showinfo("اختيار الشبكة", "اختيار الشبكات من هذه الواجهة متاح في إصدار Windows.")
+            return
         try:
-            services = self.engine.mdns_services()
-            if services["pairing"]:
-                self.pair_endpoint.set(services["pairing"][0])
-            if services["connect"]:
-                self.connect_endpoint.set(services["connect"][0])
-            if services["pairing"] or services["connect"]:
-                self.status.set(
-                    "تم اكتشاف خدمات الهاتف عبر الشبكة. أدخل رمز الاقتران الظاهر في الهاتف "
-                    "ثم اضغط اقتران Wi-Fi؛ بعد ذلك اتصل بعنوان الاتصال المكتشف."
-                )
+            os.startfile("ms-availablenetworks:")
+            self.status.set("اختر نقطة اتصال الهاتف من قائمة شبكات Windows، ثم ارجع واضغط «عرض عبر Wi-Fi».")
+        except OSError as exc:
+            messagebox.showerror("تعذر فتح الشبكات", str(exc))
+
+    def _refresh_wireless_devices(self):
+        services = self.engine.mdns_services()
+        self.pair_endpoint.set(services["pairing"][0] if services["pairing"] else "")
+        self.connect_endpoint.set(services["connect"][0] if services["connect"] else "")
+        errors = []
+        for endpoint in services["connect"]:
+            try:
+                self.engine.connect(endpoint)
+            except MirageError as exc:
+                errors.append(str(exc))
+        devices = [d for d in self.engine.devices() if d.state == "device" and ":" in d.serial]
+        self.wifi_device_map = {
+            f"{d.serial} | {d.details}".strip(" |"): d.serial for d in devices
+        }
+        self.wifi_combo["values"] = list(self.wifi_device_map)
+        if devices:
+            if len(devices) == 1:
+                self.wifi_combo.current(0)
+            elif self.wifi_device.get() not in self.wifi_device_map:
+                self.wifi_combo.set("")
+        return services, devices, errors
+
+    def discover_wifi(self):
+        """Discover Android wireless debugging services and connect without USB."""
+        try:
+            services, devices, errors = self._refresh_wireless_devices()
+            if devices:
+                self.status.set(f"تم اكتشاف {len(devices)} هاتف عبر Wi-Fi. اختر الهاتف ثم اضغط «عرض عبر Wi-Fi».")
+            elif services["pairing"]:
+                self.status.set("الهاتف جاهز للاقتران الأول. اضغط «عرض عبر Wi-Fi» لإدخال رمز الهاتف.")
+            elif errors:
+                self.status.set("عُثر على خدمة الهاتف لكن تعذر الاتصال. تأكد من تفعيل التصحيح اللاسلكي.")
             else:
                 self.status.set(
-                    "لم يُكتشف الهاتف تلقائياً. تأكد أن نقطة الاتصال مفعّلة، والكمبيوتر متصل بها، "
-                    "وتصحيح أخطاء USB اللاسلكي مفعّل في الهاتف. يمكنك إدخال العناوين يدوياً."
+                    "لم يُكتشف هاتف. اختر شبكة الهاتف أولاً، ثم فعّل تصحيح أخطاء USB اللاسلكي "
+                    "وافتح شاشة الاقتران أو شاشة التصحيح اللاسلكي الرئيسية."
                 )
         except MirageError as exc:
             messagebox.showerror("تعذر اكتشاف الهاتف", str(exc))
 
-    def connect(self):
-        try:
-            result = self.engine.connect(self.connect_endpoint.get().strip())
-            self.status.set(result or "تم طلب الاتصال؛ حدّث قائمة الأجهزة.")
-            self.refresh()
-        except MirageError as exc:
-            messagebox.showerror("تعذر الاتصال", str(exc))
-
-    def pair(self):
-        try:
-            result = self.engine.pair(self.pair_endpoint.get().strip(), self.code.get().strip())
-            self.status.set(result or "تم طلب الاقتران. أكمل الاتصال بعنوان الاتصال.")
-        except MirageError as exc:
-            messagebox.showerror("تعذر الاقتران", str(exc))
-
-    def start(self):
+    def start_wifi(self):
+        """One-button Wi-Fi flow: discover, first-time pair if needed, connect, then stream."""
         if self.process and self.process.poll() is None:
             self.status.set("العرض يعمل بالفعل.")
             return
+        try:
+            services, devices, errors = self._refresh_wireless_devices()
+            if not devices and services["pairing"]:
+                code = simpledialog.askstring(
+                    "الاقتران الأول",
+                    "أدخل رمز الاقتران الظاهر في نافذة «الإقران باستخدام رمز» على الهاتف:",
+                    parent=self.root,
+                )
+                if not code:
+                    self.status.set("أُلغي الاقتران. يمكنك المحاولة متى شئت.")
+                    return
+                result = self.engine.pair(services["pairing"][0], code.strip())
+                self.status.set(result or "نجح الاقتران. جارٍ البحث عن اتصال الهاتف...")
+                for _ in range(5):
+                    time.sleep(0.6)
+                    services, devices, errors = self._refresh_wireless_devices()
+                    if devices:
+                        break
+            if not devices:
+                messagebox.showwarning(
+                    "لم يظهر الهاتف بعد",
+                    "لم يظهر اتصال الهاتف بعد. تأكد أن الكمبيوتر على نقطة اتصال الهاتف، "
+                    "وأن «تصحيح أخطاء USB اللاسلكي» مفعّل. في أول مرة افتح «الإقران باستخدام رمز» "
+                    "على الهاتف ثم أعد المحاولة. إذا اكتمل الاقتران، ارجع إلى شاشة التصحيح اللاسلكي الرئيسية.",
+                )
+                return
+            serial = self.wifi_device_map.get(self.wifi_device.get())
+            if not serial and len(devices) == 1:
+                serial = devices[0].serial
+            if not serial:
+                messagebox.showinfo("اختر الهاتف", "عُثر على أكثر من هاتف. اختر الهاتف المطلوب من القائمة ثم اضغط عرض.")
+                return
+            self._start_stream(serial)
+        except MirageError as exc:
+            messagebox.showerror("تعذر عرض الهاتف عبر Wi-Fi", str(exc))
+
+    def start(self):
         serial = self.device_map.get(self.device.get())
         if not serial:
-            messagebox.showwarning("اختر الهاتف", "حدّد هاتفاً جاهزاً أولاً.")
+            messagebox.showwarning("اختر هاتف USB", "حدّد هاتفاً جاهزاً في قسم USB أولاً.")
             return
+        self._start_stream(serial)
+
+    def _start_stream(self, serial):
+        if self.process and self.process.poll() is None:
+            self.status.set("العرض يعمل بالفعل.")
+            return
+        log_handle = None
         try:
-            log_handle = None
             if self.show_fps.get():
                 self.fps_log_path.parent.mkdir(parents=True, exist_ok=True)
                 log_handle = self.fps_log_path.open("a", encoding="utf-8")
