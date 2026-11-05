@@ -119,11 +119,6 @@ def test_cli_exposes_buffer_and_fps_switches():
     assert args.video_buffer_ms == 25
     assert args.print_fps is True
 
-def test_cli_exposes_buffer_and_fps_switches():
-    args = build_parser().parse_args(["stream", "--video-buffer-ms", "25", "--print-fps"])
-    assert args.video_buffer_ms == 25
-    assert args.print_fps is True
-
 
 @pytest.mark.parametrize("kwargs", [
     {"bit_rate": "abc"}, {"bit_rate": "40 M"}, {"max_size": 0}
@@ -132,3 +127,17 @@ def test_stream_rejects_malformed_bitrate_and_size(tmp_path, kwargs):
     engine = Engine(scrcpy_path=fake_tool(tmp_path, "scrcpy"), popen=lambda *a, **k: None)
     with pytest.raises(MirageError):
         engine.stream(**kwargs)
+
+def test_stream_forwards_diagnostic_log_handles(tmp_path):
+    scrcpy = fake_tool(tmp_path, "scrcpy")
+    output = object()
+    error = object()
+    seen = {}
+    def popen(args, **kwargs):
+        seen.update(kwargs)
+        return object()
+    Engine(scrcpy_path=scrcpy, popen=popen).stream(
+        "ABC", print_fps=True, stdout=output, stderr=error
+    )
+    assert seen["stdout"] is output
+    assert seen["stderr"] is error
