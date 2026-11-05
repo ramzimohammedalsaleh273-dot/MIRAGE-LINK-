@@ -13,7 +13,8 @@ py -m pip install -e ".[build]"
 if ($LASTEXITCODE -ne 0) { throw "Could not install project build dependencies." }
 
 Write-Host "[2/5] Building the Windows GUI executable..."
-if (Test-Path "build\MIRAGE-LINK") { Remove-Item "build\MIRAGE-LINK" -Recurse -Force }
+if (Test-Path "build\pyinstaller\MIRAGE-LINK") { Remove-Item "build\pyinstaller\MIRAGE-LINK" -Recurse -Force }
+if (Test-Path "build\work") { Remove-Item "build\work" -Recurse -Force }
 if (Test-Path "dist\MIRAGE-LINK") { Remove-Item "dist\MIRAGE-LINK" -Recurse -Force }
 py -m PyInstaller --noconfirm --clean --windowed --name "MIRAGE-LINK" --paths "src" --distpath "build\pyinstaller" --workpath "build\work" "packaging\run_gui.py"
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
