@@ -22,6 +22,10 @@ import java.io.BufferedOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.Inet4Address
+import java.net.InetSocketAddress
+import java.net.NetworkInterface
+import java.util.Collections
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
@@ -122,11 +126,24 @@ class CaptureService : Service() {
         thread(name = "mirage-discovery", isDaemon = true) {
             while (running.get()) {
                 try {
-                    DatagramSocket().use { socket ->
-                        socket.broadcast = true
-                        val payload = "$MAGIC|$VIDEO_PORT".toByteArray(Charsets.UTF_8)
-                        val packet = DatagramPacket(payload, payload.size, InetAddress.getByName("255.255.255.255"), DISCOVERY_PORT)
-                        socket.send(packet)
+                    val payload = "$MAGIC|$VIDEO_PORT".toByteArray(Charsets.UTF_8)
+                    val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+                    for (networkInterface in interfaces) {
+                        if (!networkInterface.isUp || networkInterface.isLoopback) continue
+                        for (interfaceAddress in networkInterface.interfaceAddresses) {
+                            val local = interfaceAddress.address
+                            val broadcast = interfaceAddress.broadcast
+                            if (local !is Inet4Address || broadcast == null) continue
+                            try {
+                                DatagramSocket(null).use { socket ->
+                                    socket.broadcast = true
+                                    socket.bind(InetSocketAddress(local, 0))
+                                    socket.send(DatagramPacket(payload, payload.size, broadcast, DISCOVERY_PORT))
+                                }
+                            } catch (_: Exception) {
+                                // Some interfaces do not permit broadcast; continue with the others.
+                            }
+                        }
                     }
                     Thread.sleep(1200)
                 } catch (_: Exception) {
