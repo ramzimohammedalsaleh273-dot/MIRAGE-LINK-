@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
 from .engine import Engine, MirageError
 from .wifi_receiver import WifiReceiver
@@ -194,9 +193,12 @@ class MirageWindow:
 
     def start_wifi(self):
         """Listen for the Android companion beacon and show its H.264 stream."""
-        if self.wifi_receiver is not None:
+        if self.wifi_receiver is not None and self.wifi_receiver.is_running:
             self.status.set("البحث أو عرض Wi-Fi يعمل بالفعل.")
             return
+        if self.wifi_receiver is not None:
+            self.wifi_receiver.stop()
+            self.wifi_receiver = None
         self._open_preview()
         self.wifi_receiver = WifiReceiver(
             on_frame=lambda image: self.root.after(0, self._show_frame, image),
