@@ -175,7 +175,7 @@ class MirageWindow:
 
     def connect(self):
         try:
-            result = self.engine.connect(self.endpoint.get().strip())
+            result = self.engine.connect(self.connect_endpoint.get().strip())
             self.status.set(result or "تم طلب الاتصال؛ حدّث قائمة الأجهزة.")
             self.refresh()
         except MirageError as exc:
@@ -183,7 +183,7 @@ class MirageWindow:
 
     def pair(self):
         try:
-            result = self.engine.pair(self.endpoint.get().strip(), self.code.get().strip())
+            result = self.engine.pair(self.pair_endpoint.get().strip(), self.code.get().strip())
             self.status.set(result or "تم طلب الاقتران. أكمل الاتصال بعنوان الاتصال.")
         except MirageError as exc:
             messagebox.showerror("تعذر الاقتران", str(exc))
