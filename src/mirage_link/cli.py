@@ -1,32 +1,46 @@
 """Arabic command-line interface."""
 from __future__ import annotations
+
 import argparse
 import sys
+
 from .engine import Engine, MirageError
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="mirage", description="MIRAGE LINK — محرك اتصال وبث شاشة Android")
+    parser = argparse.ArgumentParser(
+        prog="mirage",
+        description="MIRAGE LINK — محرك اتصال وبث شاشة Android",
+    )
     parser.add_argument("--adb", help="المسار الكامل لملف adb")
     parser.add_argument("--scrcpy", help="المسار الكامل لملف scrcpy")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="فحص الأدوات والاتصال")
     sub.add_parser("devices", help="عرض الأجهزة")
-    p = sub.add_parser("pair", help="اقتران لاسلكي")
-    p.add_argument("endpoint"); p.add_argument("code")
-    c = sub.add_parser("connect", help="الاتصال بعنوان IP ومنفذ")
-    c.add_argument("endpoint")
-    t = sub.add_parser("tcpip", help="تفعيل ADB TCP/IP بعد توصيل USB")
-    t.add_argument("port", nargs="?", type=int, default=5555)
-    t.add_argument("--serial")
-    s = sub.add_parser("stream", help="بدء بث الشاشة بجودتها الأصلية ومعدل بت مرتفع")
-    s.add_argument("--serial")
-    s.add_argument("--codec", choices=["auto", "h264", "h265"], default="h264")
-    s.add_argument("--max-fps", type=int, default=60)
-    s.add_argument("--bit-rate", default="40M")
-    s.add_argument("--fullscreen", action="store_true")
-    s.add_argument("--max-size", type=int,
-                   help="اختياري فقط: يقيّد حجم الالتقاط؛ اتركه فارغاً للحفاظ على الدقة الأصلية")
+
+    pair = sub.add_parser("pair", help="اقتران لاسلكي")
+    pair.add_argument("endpoint")
+    pair.add_argument("code")
+
+    connect = sub.add_parser("connect", help="الاتصال بعنوان IP ومنفذ")
+    connect.add_argument("endpoint")
+
+    tcp = sub.add_parser("tcpip", help="تفعيل ADB TCP/IP بعد توصيل USB")
+    tcp.add_argument("port", nargs="?", type=int, default=5555)
+    tcp.add_argument("--serial")
+
+    stream = sub.add_parser("stream", help="بدء بث الشاشة بجودتها الأصلية")
+    stream.add_argument("--serial")
+    stream.add_argument("--codec", choices=["auto", "h264", "h265"], default="h264")
+    stream.add_argument("--max-fps", type=int, default=60)
+    stream.add_argument("--bit-rate", default="40M")
+    stream.add_argument("--video-buffer-ms", type=int, choices=range(0, 501), default=0,
+                        metavar="0..500")
+    stream.add_argument("--print-fps", action="store_true",
+                        help="إظهار قياس الإطارات الفعلي من scrcpy")
+    stream.add_argument("--fullscreen", action="store_true")
+    stream.add_argument("--max-size", type=int,
+                        help="اختياري فقط: يقيّد حجم الالتقاط؛ اتركه فارغاً للحفاظ على الدقة الأصلية")
     return parser
 
 
@@ -54,16 +68,29 @@ def main(argv: list[str] | None = None) -> int:
             devices = engine.devices()
             serial = args.serial
             if not serial:
-                ready = [d for d in devices if d.state == "device"]
+                ready = [device for device in devices if device.state == "device"]
                 if not ready:
-                    raise MirageError("لا يوجد هاتف مصرح به. نفّذ mirage devices وافق على رسالة التصحيح في الهاتف.")
+                    raise MirageError(
+                        "لا يوجد هاتف مصرح به. نفّذ mirage devices ووافق على رسالة التصحيح في الهاتف."
+                    )
                 if len(ready) > 1:
                     raise MirageError("هناك عدة أجهزة. حدّد الجهاز باستخدام --serial SERIAL.")
                 serial = ready[0].serial
             print(f"بدء البث للجهاز: {serial}")
-            print("ملف الجودة: طبيعي مرتفع — دقة المصدر الأصلية دون تصغير — 40M — حتى 60 إطاراً/ثانية")
-            process = engine.stream(serial, args.codec, args.max_fps, args.bit_rate,
-                                    args.fullscreen, args.max_size)
+            print(
+                f"الترميز: {args.codec} | معدل البت: {args.bit_rate} | "
+                f"السقف: {args.max_fps} إطار/ث | المخزن: {args.video_buffer_ms}ms"
+            )
+            process = engine.stream(
+                serial=serial,
+                codec=args.codec,
+                max_fps=args.max_fps,
+                bit_rate=args.bit_rate,
+                fullscreen=args.fullscreen,
+                max_size=args.max_size,
+                video_buffer_ms=args.video_buffer_ms,
+                print_fps=args.print_fps,
+            )
             print(f"تم تشغيل scrcpy (PID: {process.pid}). أغلق نافذة العرض لإنهاء البث.")
             return process.wait()
         return 0
