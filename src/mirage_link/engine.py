@@ -6,6 +6,7 @@ Android MediaCodec capture/encode and desktop decode pipeline.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -114,8 +115,8 @@ class Engine:
             raise MirageError("الترميز المتاح: auto أو h264 أو h265.")
         if not 1 <= max_fps <= 240:
             raise MirageError("معدل الإطارات يجب أن يكون بين 1 و240.")
-        if not bit_rate or any(c.isspace() for c in bit_rate) or bit_rate.startswith("-"):
-            raise MirageError("قيمة معدل البت غير صالحة، مثال: 40M.")
+        if not isinstance(bit_rate, str) or not re.fullmatch(r"[1-9][0-9]*(?:[KMG])?", bit_rate, re.IGNORECASE):
+            raise MirageError("قيمة معدل البت غير صالحة، مثال: 40M أو 24000K.")
         if not 0 <= video_buffer_ms <= 500:
             raise MirageError("مخزن الفيديو يجب أن يكون بين 0 و500 مللي ثانية.")
         args: list[str] = []
@@ -130,7 +131,7 @@ class Engine:
             args += ["--video-buffer", str(video_buffer_ms)]
         if print_fps:
             args.append("--print-fps")
-        if max_size:
+        if max_size is not None:
             if not 240 <= max_size <= 8192:
                 raise MirageError("الحد الأقصى للحجم يجب أن يكون بين 240 و8192.")
             args += ["--max-size", str(max_size)]
