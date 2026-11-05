@@ -27,8 +27,8 @@ class MirageWindow:
         self.device_map: dict[str, str] = {}
 
         root.title("MIRAGE LINK — عرض شاشة الهاتف")
-        root.geometry("780x570")
-        root.minsize(700, 520)
+        root.geometry("820x700")
+        root.minsize(760, 650)
         root.protocol("WM_DELETE_WINDOW", self.close)
 
         style = ttk.Style()
@@ -47,33 +47,45 @@ class MirageWindow:
             justify="right",
         ).pack(anchor="e", pady=(4, 14))
 
-        dev = ttk.LabelFrame(outer, text="الهاتف والاتصال", padding=10)
+        dev = ttk.LabelFrame(outer, text="اختر طريقة الاتصال", padding=10)
         dev.pack(fill="x", pady=5)
-        row = ttk.Frame(dev)
-        row.pack(fill="x")
-        ttk.Button(row, text="تحديث الأجهزة", command=self.refresh).pack(side="right")
-        self.device = tk.StringVar()
-        self.combo = ttk.Combobox(row, textvariable=self.device, state="readonly", justify="right")
-        self.combo.pack(side="right", fill="x", expand=True, padx=8)
 
+        usb = ttk.LabelFrame(dev, text="القسم الأول: الاتصال عبر USB", padding=8)
+        usb.pack(fill="x", pady=(0, 8))
+        usb_row = ttk.Frame(usb)
+        usb_row.pack(fill="x")
+        ttk.Label(usb_row, text="الأجهزة المتصلة بالكابل").pack(side="right", padx=5)
+        self.device = tk.StringVar()
+        self.combo = ttk.Combobox(usb_row, textvariable=self.device, state="readonly", justify="right")
+        self.combo.pack(side="right", fill="x", expand=True, padx=8)
+        ttk.Button(usb_row, text="تحديث أجهزة USB", command=self.refresh).pack(side="right")
+
+        wifi = ttk.LabelFrame(dev, text="القسم الثاني: الاتصال عبر Wi-Fi فقط — لا يحتاج كابل USB", padding=8)
+        wifi.pack(fill="x")
         ttk.Label(
-            dev,
-            text="Android 11 فأحدث: استخدم عنوان الاقتران ورقمه أولاً، ثم عنوان الاتصال (المنفذان مختلفان غالباً).",
+            wifi,
+            text=(
+                "1) فعّل نقطة اتصال الهاتف، ثم صِل الكمبيوتر بها.\n"
+                "2) في الهاتف: خيارات المطور ← تصحيح أخطاء USB اللاسلكي، ثم فعّله.\n"
+                "3) اختر «الإقران باستخدام رمز» واكتب عنوان الاقتران والرمز أدناه.\n"
+                "4) ارجع للشاشة الرئيسية لتصحيح الأخطاء اللاسلكي واكتب عنوان IP:PORT الظاهر هناك، ثم اتصل.\n"
+                "مهم: عنوان/منفذ الاقتران يختلف عن عنوان/منفذ الاتصال. لا يلزم إنترنت ولا كابل."
+            ),
             justify="right",
             wraplength=700,
-        ).pack(anchor="e", pady=(10, 4))
-        net = ttk.Frame(dev)
+        ).pack(anchor="e", pady=(0, 7))
+        net = ttk.Frame(wifi)
         net.pack(fill="x")
         self.pair_endpoint = tk.StringVar()
         self.connect_endpoint = tk.StringVar()
         self.code = tk.StringVar()
-        ttk.Label(net, text="عنوان الاقتران IP:PORT").pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.pair_endpoint, justify="center", width=18).pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.code, justify="center", width=10).pack(side="right", padx=3)
-        ttk.Button(net, text="اقتران", command=self.pair).pack(side="right", padx=3)
-        ttk.Label(net, text="عنوان الاتصال IP:PORT").pack(side="right", padx=3)
-        ttk.Entry(net, textvariable=self.connect_endpoint, justify="center", width=18).pack(side="right", padx=3)
-        ttk.Button(net, text="اتصال", command=self.connect).pack(side="right", padx=3)
+        ttk.Label(net, text="عنوان الاقتران").pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.pair_endpoint, justify="center", width=17).pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.code, justify="center", width=9).pack(side="right", padx=3)
+        ttk.Button(net, text="اقتران Wi-Fi", command=self.pair).pack(side="right", padx=3)
+        ttk.Label(net, text="عنوان الاتصال").pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.connect_endpoint, justify="center", width=17).pack(side="right", padx=3)
+        ttk.Button(net, text="اتصال Wi-Fi", command=self.connect).pack(side="right", padx=3)
 
         quality = ttk.LabelFrame(outer, text="أوضاع الجودة والأداء", padding=10)
         quality.pack(fill="x", pady=8)
@@ -138,7 +150,7 @@ class MirageWindow:
         ttk.Button(actions, text="إيقاف العرض", command=self.stop).pack(side="left")
         ttk.Button(actions, text="بدء عرض الشاشة", command=self.start).pack(side="right")
 
-        self.status = tk.StringVar(value="جاهز — صِل الهاتف ووافق على تصحيح USB.")
+        self.status = tk.StringVar(value="جاهز — اختر USB أو اتصل عبر Wi-Fi دون كابل.")
         ttk.Label(outer, textvariable=self.status, wraplength=710, justify="right").pack(
             fill="x", anchor="e", pady=8
         )
@@ -169,7 +181,7 @@ class MirageWindow:
                 self.status.set(f"تم العثور على {len(devices)} جهاز جاهز.")
             else:
                 self.device.set("")
-                self.status.set("لا يوجد هاتف مصرح به. افحص الكابل وموافقة تصحيح USB.")
+                self.status.set("لا يوجد هاتف متصل حالياً. استخدم تحديث USB أو أكمل الاقتران والاتصال عبر Wi-Fi.")
         except MirageError as exc:
             self.status.set(str(exc))
 
