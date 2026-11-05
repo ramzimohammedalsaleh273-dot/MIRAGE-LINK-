@@ -136,3 +136,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ".\packaging\build-windows.p
 - سجل قياس الإطارات في الواجهة الرسومية محفوظ في `%LOCALAPPDATA%\\MIRAGE LINK\\logs\\scrcpy-performance.log` حتى يمكن فحصه بعد إغلاق نافذة البث.
 - نجاح الاختبارات الآلية أو إنشاء ملف EXE لا يعني اكتمال اختبار الهاتف الحقيقي. حالة الإصدار تبقى تجريبية إلى أن ينجح اختبار USB وWi-Fi، وتُراجع سجلات FPS، ويُختبر تشغيل الحزمة على Windows نظيف.
 - لا توجد حالياً نسخة Android مستقلة أو دعم iOS أو تحسين صورة بالذكاء الاصطناعي. هذه ليست ميزات مخفية أو مكتملة.
+
+
+### تنزيل نسخة Windows من GitHub Actions
+
+بعد اكتمال سير عمل **Windows portable GUI build** بنجاح:
+1. افتح تبويب Actions في مستودع GitHub.
+2. اختر أحدث تشغيل ناجح لسير العمل **Windows portable GUI build**.
+3. من قسم Artifacts نزّل `MIRAGE-LINK-Windows-GUI` وفك ضغطه.
+4. هذه الحزمة تحتوي برنامج الواجهة فقط؛ يجب تثبيت ADB وscrcpy منفصلين أو إنشاء الحزمة محلياً مع مجلد scrcpy الموجود على جهازك.
+
+لا تستخدم ملف Actions Artifact على أنه حزمة مستقلة تماماً عن ADB/scrcpy.
