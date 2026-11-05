@@ -29,8 +29,16 @@ class MainActivity : Activity() {
                 startActivityForResult(manager.createScreenCaptureIntent(), requestCapture)
             }
         }
+        val stop = Button(this).apply {
+            text = "إيقاف مشاركة الشاشة"
+            setOnClickListener {
+                stopService(Intent(this@MainActivity, CaptureService::class.java))
+                status.text = "تم إيقاف مشاركة الشاشة."
+            }
+        }
         layout.addView(status)
         layout.addView(start)
+        layout.addView(stop)
         setContentView(layout)
     }
 
