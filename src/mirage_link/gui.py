@@ -1,7 +1,10 @@
 """واجهة Windows عربية للتحكم في جودة بث MIRAGE LINK."""
 from __future__ import annotations
 
+import os
+import subprocess
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk, messagebox
 
 from .engine import Engine, MirageError
@@ -19,6 +22,8 @@ class MirageWindow:
         self.root = root
         self.engine = Engine()
         self.process = None
+        self.fps_log_handle = None
+        self.fps_log_path = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MIRAGE LINK" / "logs" / "scrcpy-performance.log"
         self.device_map: dict[str, str] = {}
 
         root.title("MIRAGE LINK — عرض شاشة الهاتف")
@@ -187,6 +192,10 @@ class MirageWindow:
             messagebox.showwarning("اختر الهاتف", "حدّد هاتفاً جاهزاً أولاً.")
             return
         try:
+            log_handle = None
+            if self.show_fps.get():
+                self.fps_log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_handle = self.fps_log_path.open("a", encoding="utf-8")
             self.process = self.engine.stream(
                 serial=serial,
                 codec=self.codec.get(),
@@ -195,14 +204,20 @@ class MirageWindow:
                 fullscreen=True,
                 video_buffer_ms=int(self.buffer_ms.get()),
                 print_fps=self.show_fps.get(),
+                stdout=log_handle,
+                stderr=subprocess.STDOUT if log_handle else None,
             )
+            self.fps_log_handle = log_handle
             self.status.set(
                 f"بدأ العرض: {serial} — {self.codec.get()} — "
                 f"{self.rate.get()} — حتى {self.fps.get()} إطار/ث — "
                 f"مخزن {self.buffer_ms.get()}ms."
+                + (f" سجل قياس الأداء: {self.fps_log_path}" if log_handle else "")
             )
             self.root.after(700, self.check_process)
-        except MirageError as exc:
+        except (MirageError, OSError) as exc:
+            if log_handle:
+                log_handle.close()
             messagebox.showerror("تعذر بدء العرض", str(exc))
 
     def check_process(self):
@@ -214,6 +229,9 @@ class MirageWindow:
         else:
             self.status.set(f"انتهى العرض (رمز الخروج {code}).")
             self.process = None
+            if self.fps_log_handle:
+                self.fps_log_handle.close()
+                self.fps_log_handle = None
 
     def stop(self):
         if self.process and self.process.poll() is None:
@@ -225,6 +243,9 @@ class MirageWindow:
     def close(self):
         if self.process and self.process.poll() is None:
             self.process.terminate()
+        if self.fps_log_handle:
+            self.fps_log_handle.close()
+            self.fps_log_handle = None
         self.root.destroy()
 
 
