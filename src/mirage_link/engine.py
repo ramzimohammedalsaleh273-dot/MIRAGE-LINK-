@@ -81,7 +81,7 @@ class Engine:
         services: dict[str, list[str]] = {"pairing": [], "connect": []}
         for line in output.splitlines():
             match = re.search(
-                r"(_adb-tls-(pairing|connect)\\._tcp\\.?)\\s+((?:\\d{1,3}\\.){3}\\d{1,3}:\\d{1,5})",
+                r"(_adb-tls-(pairing|connect)\._tcp\.?)\s+((?:\d{1,3}\.){3}\d{1,3}:\d{1,5})",
                 line,
                 re.IGNORECASE,
             )
