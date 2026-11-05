@@ -113,3 +113,8 @@ def test_stream_rejects_invalid_video_buffer(tmp_path):
     engine = Engine(scrcpy_path=fake_tool(tmp_path, "scrcpy"), popen=lambda *a, **k: None)
     with pytest.raises(MirageError):
         engine.stream(video_buffer_ms=501)
+
+def test_cli_exposes_buffer_and_fps_switches():
+    args = build_parser().parse_args(["stream", "--video-buffer-ms", "25", "--print-fps"])
+    assert args.video_buffer_ms == 25
+    assert args.print_fps is True
