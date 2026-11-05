@@ -86,6 +86,7 @@ class MirageWindow:
         ttk.Label(net, text="عنوان الاتصال").pack(side="right", padx=3)
         ttk.Entry(net, textvariable=self.connect_endpoint, justify="center", width=17).pack(side="right", padx=3)
         ttk.Button(net, text="اتصال Wi-Fi", command=self.connect).pack(side="right", padx=3)
+        ttk.Button(net, text="اكتشاف الهاتف تلقائياً", command=self.discover_wifi).pack(side="left", padx=3)
 
         quality = ttk.LabelFrame(outer, text="أوضاع الجودة والأداء", padding=10)
         quality.pack(fill="x", pady=8)
@@ -184,6 +185,27 @@ class MirageWindow:
                 self.status.set("لا يوجد هاتف متصل حالياً. استخدم تحديث USB أو أكمل الاقتران والاتصال عبر Wi-Fi.")
         except MirageError as exc:
             self.status.set(str(exc))
+
+    def discover_wifi(self):
+        """Fill wireless debugging endpoints advertised by Android over local mDNS."""
+        try:
+            services = self.engine.mdns_services()
+            if services["pairing"]:
+                self.pair_endpoint.set(services["pairing"][0])
+            if services["connect"]:
+                self.connect_endpoint.set(services["connect"][0])
+            if services["pairing"] or services["connect"]:
+                self.status.set(
+                    "تم اكتشاف خدمات الهاتف عبر الشبكة. أدخل رمز الاقتران الظاهر في الهاتف "
+                    "ثم اضغط اقتران Wi-Fi؛ بعد ذلك اتصل بعنوان الاتصال المكتشف."
+                )
+            else:
+                self.status.set(
+                    "لم يُكتشف الهاتف تلقائياً. تأكد أن نقطة الاتصال مفعّلة، والكمبيوتر متصل بها، "
+                    "وتصحيح أخطاء USB اللاسلكي مفعّل في الهاتف. يمكنك إدخال العناوين يدوياً."
+                )
+        except MirageError as exc:
+            messagebox.showerror("تعذر اكتشاف الهاتف", str(exc))
 
     def connect(self):
         try:
