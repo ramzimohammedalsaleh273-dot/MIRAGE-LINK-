@@ -32,10 +32,10 @@ def test_mdns_services_discovers_wifi_pairing_and_connect_endpoints(tmp_path):
     def runner(args, **kwargs):
         seen.append(args)
         return Result(
-            "List of discovered mdns services\\n"
-            "adb-123 _adb-tls-pairing._tcp. 192.168.43.1:37123\\n"
-            "adb-123 _adb-tls-connect._tcp. 192.168.43.1:42111\\n"
-            "unrelated _other._tcp. 192.168.43.1:80\\n"
+            "List of discovered mdns services\n"
+            "adb-123 _adb-tls-pairing._tcp. 192.168.43.1:37123\n"
+            "adb-123 _adb-tls-connect._tcp. 192.168.43.1:42111\n"
+            "unrelated _other._tcp. 192.168.43.1:80\n"
         )
     engine = Engine(adb_path=adb, runner=runner)
     assert engine.mdns_services() == {
@@ -47,7 +47,7 @@ def test_mdns_services_discovers_wifi_pairing_and_connect_endpoints(tmp_path):
 
 def test_mdns_services_returns_empty_lists_when_phone_not_advertising(tmp_path):
     adb = fake_tool(tmp_path, "adb")
-    engine = Engine(adb_path=adb, runner=lambda *a, **k: Result("List of discovered mdns services\\n"))
+    engine = Engine(adb_path=adb, runner=lambda *a, **k: Result("List of discovered mdns services\n"))
     assert engine.mdns_services() == {"pairing": [], "connect": []}
 
 
