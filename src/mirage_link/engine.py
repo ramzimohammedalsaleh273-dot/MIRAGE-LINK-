@@ -103,7 +103,7 @@ class Engine:
                max_fps: int = 60, bit_rate: str = "40M",
                fullscreen: bool = False, max_size: int | None = None,
                video_buffer_ms: int = 0, print_fps: bool = False,
-               extra_args: Sequence[str] = ()) -> subprocess.Popen:
+               stdout=None, stderr=None, extra_args: Sequence[str] = ()) -> subprocess.Popen:
         """Start a source-resolution stream with a high-quality bitrate with additional compression headroom.
 
         max_size is intentionally omitted by default: scrcpy then captures the
@@ -137,7 +137,7 @@ class Engine:
             args += ["--max-size", str(max_size)]
         args.extend(extra_args)
         try:
-            return self._popen([scrcpy, *args], shell=False)
+            return self._popen([scrcpy, *args], shell=False, stdout=stdout, stderr=stderr)
         except OSError as exc:
             raise MirageError(f"تعذر تشغيل scrcpy: {exc}") from exc
 
