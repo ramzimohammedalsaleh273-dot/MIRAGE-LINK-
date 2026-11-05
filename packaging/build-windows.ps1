@@ -46,4 +46,5 @@ MIRAGE LINK — Windows portable build
 6. This build does not contain an Android companion app, iOS receiver, AI upscaler, or a proprietary video engine.
 7. Keep all third-party license files shipped with their original tool packages.
 '@ | Set-Content -Encoding UTF8 "dist\MIRAGE-LINK\ملاحظات-التشغيل.txt"
-Write-Host "Build completed: $((Resolve-Path 'dist\MIRAGE-LINK').Path)"
+$OutputPath = (Resolve-Path "dist\MIRAGE-LINK").Path
+Write-Host ("Build completed: " + $OutputPath)
