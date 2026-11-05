@@ -110,7 +110,10 @@ class CaptureService : Service() {
 
     private fun startNetwork() {
         running.set(true)
-        server = ServerSocket(VIDEO_PORT, 1, InetAddress.getByName("0.0.0.0"))
+        server = ServerSocket().apply {
+            reuseAddress = true
+            bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), VIDEO_PORT), 1)
+        }
         thread(name = "mirage-accept", isDaemon = true) {
             try {
                 val accepted = server?.accept() ?: return@thread
