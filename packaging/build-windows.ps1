@@ -31,7 +31,7 @@ if (Test-Path 'dist\MIRAGE-LINK') {
     Remove-Item 'dist\MIRAGE-LINK' -Recurse -Force
 }
 
-py -m PyInstaller --noconfirm --clean --windowed --name 'MIRAGE-LINK' --paths 'src' --distpath 'build\pyinstaller' --workpath 'build\work' 'packaging\run_gui.py'
+py -m PyInstaller --noconfirm --clean --windowed --name 'MIRAGE-LINK' --paths 'src' --collect-all av --collect-all PIL --distpath 'build\pyinstaller' --workpath 'build\work' 'packaging\run_gui.py'
 if ($LASTEXITCODE -ne 0) {
     throw 'PyInstaller failed.'
 }
@@ -62,11 +62,12 @@ $Notes = @(
     ''
     '1. Run the BAT launcher in this folder.'
     '2. Connect an Android phone by USB and approve the USB debugging prompt.'
-    '3. For wireless use, pair/connect from Android Developer Options while both devices are on the same local network.'
+    '3. For Wi-Fi: connect Windows to the phone hotspot, open the Android companion, approve screen capture, then click Wi-Fi display in this app.'
     '4. Video transport is provided by the separately licensed scrcpy project; ADB is also an external tool.'
     '5. If tools/scrcpy is absent, install scrcpy and Android Platform Tools and add them to PATH.'
-    '6. This build does not contain an Android companion app, iOS receiver, AI upscaler, or proprietary video engine.'
-    '7. Keep all third-party license files shipped with their original tool packages.'
+    '6. Wi-Fi video uses the Android companion app (MediaProjection + H.264) and local UDP/TCP; no ADB wireless debugging is used.'
+    '7. iPhone support and AI upscaling are not included.'
+    '8. Keep all third-party license files shipped with their original tool packages.'
 )
 $Notes | Set-Content -Encoding UTF8 'dist\MIRAGE-LINK\NOTES.txt'
 
