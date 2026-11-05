@@ -10,6 +10,7 @@ import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -39,6 +40,8 @@ class CaptureService : Service() {
         private const val VIDEO_PORT = 27183
         private const val DISCOVERY_PORT = 27184
         private const val MAGIC = "MIRAGE-LINK/1"
+        private const val RESULT_CANCELED = 0
+        private const val RESULT_OK = -1
     }
 
     private var projection: MediaProjection? = null
@@ -200,8 +203,4 @@ class CaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private companion object ActivityResult {
-        const val RESULT_CANCELED = 0
-        const val RESULT_OK = -1
-    }
 }
