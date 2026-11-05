@@ -3,21 +3,49 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build portable GUI folder
+
+      - name: Download and verify official scrcpy 3.3.1
         shell: pwsh
-        run: ./packaging/build-windows.ps1 -ScrcpyDirectory "$env:RUNNER_TEMP/nonexistent-scrcpy"
-      - name: Upload Windows GUI artifact
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'scrcpy-win64-v3.3.1.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'scrcpy-extracted'
+          $url = 'https://github.com/Genymobile/scrcpy/releases/download/v3.3.1/scrcpy-win64-v3.3.1.zip'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = '4fcad494772a3ae5de9a133149f8856d2fc429b41795f7cf7c754e0c1bb6fbc0'
+          if ($actual -ne $expected) {
+            throw "scrcpy SHA-256 mismatch. Expected $expected, got $actual"
+          }
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          $scrcpy = Get-ChildItem -Path $extract -Filter 'scrcpy.exe' -Recurse | Select-Object -First 1
+          if ($null -eq $scrcpy) {
+            throw 'scrcpy.exe was not found in the verified archive.'
+          }
+          $adb = Join-Path $scrcpy.DirectoryName 'adb.exe'
+          if (-not (Test-Path $adb)) {
+            throw 'adb.exe was not found beside scrcpy.exe in the official archive.'
+          }
+          "SCRCPY_DIRECTORY=$($scrcpy.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build complete portable GUI folder
+        shell: pwsh
+        run: ./packaging/build-windows.ps1 -ScrcpyDirectory "$env:SCRCPY_DIRECTORY"
+
+      - name: Upload complete Windows package
         uses: actions/upload-artifact@v4
         with:
-          name: MIRAGE-LINK-Windows-GUI
+          name: MIRAGE-LINK-Windows-Full
           path: dist/MIRAGE-LINK/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
