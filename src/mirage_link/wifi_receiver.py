@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import socket
 import threading
-import time
 from typing import Callable
 
 DISCOVERY_PORT = 27184
@@ -20,7 +19,6 @@ class WifiReceiver:
         self._discovery_socket = None
         self._video_socket = None
         self._thread = None
-        self._lock = threading.Lock()
         self.address = None
 
     @staticmethod
@@ -33,6 +31,10 @@ class WifiReceiver:
             return port
         except (UnicodeDecodeError, ValueError):
             return None
+
+    @property
+    def is_running(self):
+        return self._thread is not None and self._thread.is_alive()
 
     def start(self):
         if self._thread and self._thread.is_alive():
