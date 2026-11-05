@@ -58,17 +58,22 @@ class MirageWindow:
 
         ttk.Label(
             dev,
-            text="للاتصال اللاسلكي: أدخل عنوان IP والمنفذ الظاهرين في إعدادات تصحيح USB اللاسلكي.",
+            text="Android 11 فأحدث: استخدم عنوان الاقتران ورقمه أولاً، ثم عنوان الاتصال (المنفذان مختلفان غالباً).",
             justify="right",
+            wraplength=700,
         ).pack(anchor="e", pady=(10, 4))
         net = ttk.Frame(dev)
         net.pack(fill="x")
-        self.endpoint = tk.StringVar()
+        self.pair_endpoint = tk.StringVar()
+        self.connect_endpoint = tk.StringVar()
         self.code = tk.StringVar()
-        ttk.Entry(net, textvariable=self.endpoint, justify="right", width=22).pack(side="right", padx=4)
-        ttk.Button(net, text="اتصال", command=self.connect).pack(side="right", padx=4)
-        ttk.Entry(net, textvariable=self.code, justify="right", width=12).pack(side="right", padx=4)
-        ttk.Button(net, text="اقتران", command=self.pair).pack(side="right", padx=4)
+        ttk.Label(net, text="عنوان الاقتران IP:PORT").pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.pair_endpoint, justify="center", width=18).pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.code, justify="center", width=10).pack(side="right", padx=3)
+        ttk.Button(net, text="اقتران", command=self.pair).pack(side="right", padx=3)
+        ttk.Label(net, text="عنوان الاتصال IP:PORT").pack(side="right", padx=3)
+        ttk.Entry(net, textvariable=self.connect_endpoint, justify="center", width=18).pack(side="right", padx=3)
+        ttk.Button(net, text="اتصال", command=self.connect).pack(side="right", padx=3)
 
         quality = ttk.LabelFrame(outer, text="أوضاع الجودة والأداء", padding=10)
         quality.pack(fill="x", pady=8)
