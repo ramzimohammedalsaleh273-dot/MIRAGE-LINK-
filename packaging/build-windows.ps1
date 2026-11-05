@@ -7,8 +7,8 @@ Set-Location $Root
 
 Write-Host "[1/5] Checking Python and packaging tools..."
 if (-not (Get-Command py -ErrorAction SilentlyContinue)) { throw "Python Launcher (py) is required." }
-py -m pip install --upgrade pip
-if ($LASTEXITCODE -ne 0) { throw "Could not upgrade pip." }
+py --version
+if ($LASTEXITCODE -ne 0) { throw "Python Launcher is not working." }
 py -m pip install -e ".[build]"
 if ($LASTEXITCODE -ne 0) { throw "Could not install project build dependencies." }
 
