@@ -99,6 +99,19 @@ class MirageWindow:
             state="readonly", width=7, justify="center",
         ).pack(side="right")
 
+        latency = ttk.Frame(quality)
+        latency.pack(fill="x", pady=(10, 0))
+        self.buffer_ms = tk.StringVar(value="0")
+        self.show_fps = tk.BooleanVar(value=True)
+        ttk.Label(latency, text="تعويض اهتزاز البث").pack(side="right", padx=6)
+        ttk.Combobox(
+            latency, textvariable=self.buffer_ms, values=("0", "25", "50"),
+            state="readonly", width=7, justify="center",
+        ).pack(side="right")
+        ttk.Checkbutton(
+            latency, text="إظهار قياس الإطارات الفعلي", variable=self.show_fps
+        ).pack(side="right", padx=14)
+
         ttk.Label(
             quality,
             text=(
@@ -180,10 +193,13 @@ class MirageWindow:
                 max_fps=int(self.fps.get()),
                 bit_rate=self.rate.get(),
                 fullscreen=True,
+                video_buffer_ms=int(self.buffer_ms.get()),
+                print_fps=self.show_fps.get(),
             )
             self.status.set(
                 f"بدأ العرض: {serial} — {self.codec.get()} — "
-                f"{self.rate.get()} — حتى {self.fps.get()} إطار/ث."
+                f"{self.rate.get()} — حتى {self.fps.get()} إطار/ث — "
+                f"مخزن {self.buffer_ms.get()}ms."
             )
             self.root.after(700, self.check_process)
         except MirageError as exc:
