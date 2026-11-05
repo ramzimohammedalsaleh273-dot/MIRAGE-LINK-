@@ -75,6 +75,27 @@ class Engine:
                 found.append(Device(parts[0], parts[1], " ".join(parts[2:])))
         return found
 
+    def mdns_services(self) -> dict[str, list[str]]:
+        """Discover Android 11+ wireless debugging endpoints advertised on the LAN."""
+        output = self.command(["mdns", "services"], timeout=15)
+        services: dict[str, list[str]] = {"pairing": [], "connect": []}
+        for line in output.splitlines():
+            match = re.search(
+                r"(_adb-tls-(pairing|connect)\\._tcp\\.?)\\s+((?:\\d{1,3}\\.){3}\\d{1,3}:\\d{1,5})",
+                line,
+                re.IGNORECASE,
+            )
+            if match:
+                kind = "pairing" if match.group(2).lower() == "pairing" else "connect"
+                endpoint = match.group(3)
+                try:
+                    self._validate_endpoint(endpoint)
+                except MirageError:
+                    continue
+                if endpoint not in services[kind]:
+                    services[kind].append(endpoint)
+        return services
+
     def pair(self, endpoint: str, code: str) -> str:
         self._validate_endpoint(endpoint)
         if not code.isdigit() or not (4 <= len(code) <= 12):
