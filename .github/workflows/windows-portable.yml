@@ -1,0 +1,23 @@
+name: Windows portable GUI build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build portable GUI folder
+        shell: pwsh
+        run: ./packaging/build-windows.ps1 -ScrcpyDirectory "$env:RUNNER_TEMP/nonexistent-scrcpy"
+      - name: Upload Windows GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MIRAGE-LINK-Windows-GUI
+          path: dist/MIRAGE-LINK/
+          if-no-files-found: error
+          retention-days: 14
