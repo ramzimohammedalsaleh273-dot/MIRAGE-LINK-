@@ -278,12 +278,15 @@ class MirageWindow:
                 self.fps_log_handle = None
 
     def stop(self):
+        wifi_was_active = self.wifi_receiver is not None
         if self.wifi_receiver is not None:
             self.wifi_receiver.stop()
             self.wifi_receiver = None
         if self.process and self.process.poll() is None:
             self.process.terminate()
             self.status.set("أُرسل أمر إيقاف العرض.")
+        elif wifi_was_active:
+            self.status.set("تم إيقاف البحث أو عرض Wi-Fi.")
         else:
             self.status.set("لا يوجد بث يعمل حالياً.")
 
