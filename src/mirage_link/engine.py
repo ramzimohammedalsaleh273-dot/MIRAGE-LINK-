@@ -5,8 +5,10 @@ Android MediaCodec capture/encode and desktop decode pipeline.
 """
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
+import time
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -106,6 +108,54 @@ class Engine:
         self._validate_endpoint(endpoint)
         return self.command(["connect", endpoint], timeout=30)
 
+    def wifi_discover(self) -> tuple[dict[str, list[str]], list[Device], list[str]]:
+        """Discover and connect Android wireless-debugging devices without USB."""
+        services = self.mdns_services()
+        errors: list[str] = []
+        for endpoint in services["connect"]:
+            try:
+                self.connect(endpoint)
+            except MirageError as exc:
+                errors.append(str(exc))
+        devices = [
+            device for device in self.devices()
+            if device.state == "device" and ":" in device.serial
+        ]
+        return services, devices, errors
+
+    def wifi_pair_and_connect(
+        self, code: str, retries: int = 16, retry_interval: float = 0.5
+    ) -> list[Device]:
+        """Pair once using Android's temporary code, then discover its dynamic connect port."""
+        if not isinstance(code, str) or not code.strip():
+            raise MirageError("أدخل رمز الاقتران الظاهر على الهاتف.")
+        if not isinstance(retries, int) or not 1 <= retries <= 60:
+            raise MirageError("عدد محاولات الاتصال يجب أن يكون بين 1 و60.")
+        if not isinstance(retry_interval, (int, float)) or not 0 <= retry_interval <= 5:
+            raise MirageError("فاصل المحاولات يجب أن يكون بين 0 و5 ثوانٍ.")
+
+        services, devices, _errors = self.wifi_discover()
+        if devices:
+            return devices
+        if not services["pairing"]:
+            raise MirageError(
+                "لم تظهر خدمة الاقتران. فعّل «تصحيح أخطاء USB اللاسلكي» "
+                "وافتح «الإقران باستخدام رمز» على الهاتف، ثم أعد المحاولة."
+            )
+
+        self.pair(services["pairing"][0], code.strip())
+        for _ in range(retries):
+            time.sleep(retry_interval)
+            _services, devices, _errors = self.wifi_discover()
+            if devices:
+                return devices
+
+        raise MirageError(
+            "تم إرسال طلب الاقتران، لكن لم يظهر اتصال الهاتف. "
+            "ارجع إلى شاشة «تصحيح أخطاء USB اللاسلكي» الرئيسية، "
+            "وتأكد أن الهاتف والكمبيوتر على الشبكة نفسها."
+        )
+
     def tcpip(self, port: int = 5555, serial: str | None = None) -> str:
         if not 1024 <= port <= 65535:
             raise MirageError("رقم المنفذ يجب أن يكون بين 1024 و65535.")
@@ -114,11 +164,15 @@ class Engine:
 
     @staticmethod
     def _validate_endpoint(endpoint: str) -> None:
-        if endpoint.count(":") != 1:
-            raise MirageError("اكتب العنوان بالشكل IP:PORT كما يظهر في إعدادات الهاتف.")
+        if not isinstance(endpoint, str) or endpoint.count(":") != 1:
+            raise MirageError("عنوان الهاتف المكتشف غير صالح.")
         host, port = endpoint.rsplit(":", 1)
-        if not host or not port.isdigit() or not 1 <= int(port) <= 65535:
-            raise MirageError("عنوان IP أو رقم المنفذ غير صالح.")
+        try:
+            ipaddress.IPv4Address(host)
+        except ipaddress.AddressValueError as exc:
+            raise MirageError("عنوان IP المكتشف غير صالح.") from exc
+        if not port.isdigit() or not 1 <= int(port) <= 65535:
+            raise MirageError("رقم المنفذ المكتشف غير صالح.")
 
     def stream(self, serial: str | None = None, codec: str = "h264",
                max_fps: int = 60, bit_rate: str = "40M",

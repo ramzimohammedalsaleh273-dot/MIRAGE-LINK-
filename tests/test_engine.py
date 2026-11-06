@@ -72,6 +72,101 @@ def test_connect_uses_argument_array_not_shell(tmp_path):
     assert seen[0][0] == [adb, "connect", "192.168.1.10:5555"]
 
 
+@pytest.mark.parametrize("endpoint", [
+    "999.1.1.1:5555", "192.168.1.1:0", "192.168.1.1:65536",
+    "phone.local:5555", "192.168.1.1", "192.168.1.1:abc",
+])
+def test_endpoint_validation_rejects_invalid_ipv4_or_port(endpoint):
+    with pytest.raises(MirageError):
+        Engine._validate_endpoint(endpoint)
+
+
+def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:43821\n"
+            )
+        if command == ["connect", "192.168.43.1:43821"]:
+            return Result("connected")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\n"
+                "USB123 device product:test model:Phone\n"
+                "192.168.43.1:43821 device product:test model:Phone\n"
+            )
+        return Result()
+
+    engine = Engine(adb_path=adb, runner=runner)
+    services, devices, errors = engine.wifi_discover()
+    assert services["connect"] == ["192.168.43.1:43821"]
+    assert [device.serial for device in devices] == ["192.168.43.1:43821"]
+    assert errors == []
+    assert ["connect", "192.168.43.1:43821"] in seen
+
+
+def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypatch):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+    mdns_calls = 0
+
+    def runner(args, **kwargs):
+        nonlocal mdns_calls
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            mdns_calls += 1
+            if mdns_calls == 1:
+                return Result(
+                    "List of discovered mdns services\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
+                )
+            return Result(
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\n"
+            )
+        if command[0] == "pair":
+            return Result("Successfully paired")
+        if command[0] == "connect":
+            return Result("connected")
+        if command == ["devices", "-l"]:
+            if mdns_calls < 2:
+                return Result("List of devices attached\n")
+            return Result(
+                "List of devices attached\n"
+                "192.168.43.1:42736 device product:test model:Phone\n"
+            )
+        return Result()
+
+    monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
+    engine = Engine(adb_path=adb, runner=runner)
+    devices = engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
+    assert [device.serial for device in devices] == ["192.168.43.1:42736"]
+    assert ["pair", "192.168.43.1:36127", "123456"] in seen
+    assert ["connect", "192.168.43.1:42736"] in seen
+
+
+def test_wifi_pair_requires_android_pairing_service(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+
+    def runner(args, **kwargs):
+        if args[1:] == ["mdns", "services"]:
+            return Result("List of discovered mdns services\n")
+        if args[1:] == ["devices", "-l"]:
+            return Result("List of devices attached\n")
+        return Result()
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="لم تظهر خدمة الاقتران"):
+        engine.wifi_pair_and_connect("123456", retries=1, retry_interval=0)
+
+
 def test_stream_defaults_to_native_capture_and_balanced_high_quality(tmp_path):
     scrcpy = fake_tool(tmp_path, "scrcpy")
     seen = []

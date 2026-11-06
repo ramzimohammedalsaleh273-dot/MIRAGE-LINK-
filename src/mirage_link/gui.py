@@ -5,10 +5,9 @@ import os
 import subprocess
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 
 from .engine import Engine, MirageError
-from .wifi_receiver import WifiReceiver
 
 
 QUALITY_PRESETS = {
@@ -26,10 +25,6 @@ class MirageWindow:
         self.fps_log_handle = None
         self.fps_log_path = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MIRAGE LINK" / "logs" / "scrcpy-performance.log"
         self.device_map: dict[str, str] = {}
-        self.wifi_receiver = None
-        self.preview_window = None
-        self.preview_label = None
-        self.preview_photo = None
 
         root.title("MIRAGE LINK — عرض شاشة الهاتف")
         root.geometry("820x700")
@@ -70,16 +65,25 @@ class MirageWindow:
         ttk.Label(
             wifi,
             text=(
-                "1) شغّل نقطة اتصال الهاتف، ثم صِل الكمبيوتر بها من زر اختيار شبكة Wi-Fi.\\n"
-                "2) افتح تطبيق MIRAGE LINK المساعد على الهاتف واضغط السماح بعرض الشاشة.\\n"
-                "3) اضغط «عرض عبر Wi-Fi» هنا؛ سيكتشف الهاتف تلقائياً ويبدأ العرض دون USB أو تصحيح لاسلكي."
+                "1) شغّل نقطة اتصال الهاتف، ثم صِل الكمبيوتر بها من زر اختيار شبكة Wi-Fi.\n"
+                "2) في Android 11 أو أحدث: خيارات المطور ← تصحيح أخطاء USB اللاسلكي، ثم فعّلها.\n"
+                "3) لأول مرة: افتح «الإقران باستخدام رمز» واترك نافذته مفتوحة.\n"
+                "4) اضغط «عرض عبر Wi-Fi» وأدخل الرمز عند الطلب؛ بعد الاقتران يعيد الاتصال دون رمز. لا كابل ولا إنترنت."
             ),
             justify="right",
             wraplength=700,
         ).pack(anchor="e", pady=(0, 7))
         net = ttk.Frame(wifi)
         net.pack(fill="x")
+        self.pair_endpoint = tk.StringVar()
+        self.connect_endpoint = tk.StringVar()
+        self.wifi_device = tk.StringVar()
+        self.wifi_device_map: dict[str, str] = {}
         ttk.Button(net, text="اختيار شبكة Wi-Fi", command=self.select_wifi_network).pack(side="right", padx=3)
+        ttk.Button(net, text="اكتشاف الهاتف", command=self.discover_wifi).pack(side="right", padx=3)
+        ttk.Label(net, text="الهاتف المكتشف").pack(side="right", padx=3)
+        self.wifi_combo = ttk.Combobox(net, textvariable=self.wifi_device, state="readonly", justify="right", width=28)
+        self.wifi_combo.pack(side="right", fill="x", expand=True, padx=3)
         ttk.Button(net, text="عرض عبر Wi-Fi", command=self.start_wifi).pack(side="left", padx=3)
 
         quality = ttk.LabelFrame(outer, text="أوضاع الجودة والأداء", padding=10)
@@ -143,9 +147,9 @@ class MirageWindow:
         actions = ttk.Frame(outer)
         actions.pack(fill="x", pady=12)
         ttk.Button(actions, text="إيقاف العرض", command=self.stop).pack(side="left")
-        ttk.Button(actions, text="بدء عرض الشاشة", command=self.start).pack(side="right")
+        ttk.Button(actions, text="بدء عرض USB", command=self.start).pack(side="right")
 
-        self.status = tk.StringVar(value="جاهز — اختر USB أو شغّل عرض Wi-Fi من تطبيق الهاتف المساعد.")
+        self.status = tk.StringVar(value="جاهز — اختر USB أو اتصل عبر Wi-Fi دون كابل.")
         ttk.Label(outer, textvariable=self.status, wraplength=710, justify="right").pack(
             fill="x", anchor="e", pady=8
         )
@@ -168,7 +172,7 @@ class MirageWindow:
 
     def refresh(self):
         try:
-            devices = [d for d in self.engine.devices() if d.state == "device"]
+            devices = [d for d in self.engine.devices() if d.state == "device" and ":" not in d.serial]
             self.device_map = {f"{d.serial} | {d.details}": d.serial for d in devices}
             self.combo["values"] = list(self.device_map)
             if devices:
@@ -176,7 +180,7 @@ class MirageWindow:
                 self.status.set(f"تم العثور على {len(devices)} جهاز جاهز.")
             else:
                 self.device.set("")
-                self.status.set("لا يوجد هاتف متصل حالياً. استخدم تحديث USB أو أكمل الاقتران والاتصال عبر Wi-Fi.")
+                self.status.set("لا يوجد هاتف USB متصل حالياً. يمكنك استخدام قسم Wi-Fi دون كابل.")
         except MirageError as exc:
             self.status.set(str(exc))
 
@@ -191,38 +195,81 @@ class MirageWindow:
         except OSError as exc:
             messagebox.showerror("تعذر فتح الشبكات", str(exc))
 
+    def _refresh_wireless_devices(self):
+        services, devices, errors = self.engine.wifi_discover()
+        self.pair_endpoint.set(services["pairing"][0] if services["pairing"] else "")
+        self.connect_endpoint.set(services["connect"][0] if services["connect"] else "")
+        self.wifi_device_map = {
+            f"{device.serial} | {device.details}".strip(" |"): device.serial
+            for device in devices
+        }
+        self.wifi_combo["values"] = list(self.wifi_device_map)
+        if len(devices) == 1:
+            self.wifi_combo.current(0)
+        elif self.wifi_device.get() not in self.wifi_device_map:
+            self.wifi_combo.set("")
+        return services, devices, errors
+
+    def discover_wifi(self):
+        """Discover Android wireless debugging services and connect without USB."""
+        try:
+            services, devices, errors = self._refresh_wireless_devices()
+            if devices:
+                self.status.set(f"تم اكتشاف {len(devices)} هاتف عبر Wi-Fi. اختر الهاتف ثم اضغط «عرض عبر Wi-Fi».")
+            elif services["pairing"]:
+                self.status.set("الهاتف جاهز للاقتران الأول. اضغط «عرض عبر Wi-Fi» لإدخال رمز الهاتف.")
+            elif errors:
+                self.status.set("عُثر على خدمة الهاتف لكن تعذر الاتصال. تأكد من تفعيل التصحيح اللاسلكي.")
+            else:
+                self.status.set(
+                    "لم يُكتشف هاتف. اختر شبكة الهاتف أولاً، ثم فعّل تصحيح أخطاء USB اللاسلكي "
+                    "وافتح شاشة الاقتران أو شاشة التصحيح اللاسلكي الرئيسية."
+                )
+        except MirageError as exc:
+            messagebox.showerror("تعذر اكتشاف الهاتف", str(exc))
+
     def start_wifi(self):
-        """Listen for the Android companion beacon and show its H.264 stream."""
-        if self.wifi_receiver is not None and self.wifi_receiver.is_running:
-            self.status.set("البحث أو عرض Wi-Fi يعمل بالفعل.")
+        """Discover Android 11+ wireless debugging, pair once, and stream without USB."""
+        if self.process and self.process.poll() is None:
+            self.status.set("العرض يعمل بالفعل.")
             return
-        if self.wifi_receiver is not None:
-            self.wifi_receiver.stop()
-            self.wifi_receiver = None
-        self._open_preview()
-        self.wifi_receiver = WifiReceiver(
-            on_frame=lambda image: self.root.after(0, self._show_frame, image),
-            on_status=lambda message: self.root.after(0, self.status.set, message),
-        )
-        self.wifi_receiver.start()
+        try:
+            services, devices, errors = self._refresh_wireless_devices()
+            if not devices and services["pairing"]:
+                code = simpledialog.askstring(
+                    "الاقتران الأول",
+                    "أدخل رمز الاقتران الظاهر في نافذة «الإقران باستخدام رمز» على الهاتف:",
+                    parent=self.root,
+                )
+                if code is None:
+                    self.status.set("أُلغي الاقتران. يمكنك المحاولة متى شئت.")
+                    return
+                devices = self.engine.wifi_pair_and_connect(code.strip())
+                services, devices, errors = self._refresh_wireless_devices()
 
-    def _open_preview(self):
-        if self.preview_window and self.preview_window.winfo_exists():
-            self.preview_window.deiconify()
-            return
-        self.preview_window = tk.Toplevel(self.root)
-        self.preview_window.title("MIRAGE LINK — عرض الهاتف عبر Wi-Fi")
-        self.preview_window.geometry("900x650")
-        self.preview_label = ttk.Label(self.preview_window, text="بانتظار الهاتف...")
-        self.preview_label.pack(fill="both", expand=True, padx=8, pady=8)
+            if not devices:
+                messagebox.showwarning(
+                    "لم يظهر الهاتف بعد",
+                    "لم يُكتشف الهاتف. تأكد أن الكمبيوتر متصل بنقطة اتصال الهاتف، "
+                    "وأن «تصحيح أخطاء USB اللاسلكي» مفعّل. في أول مرة افتح "
+                    "«الإقران باستخدام رمز» واترك النافذة مفتوحة ثم أعد المحاولة. "
+                    "إذا كان الاقتران محفوظاً، ارجع إلى شاشة «تصحيح أخطاء USB اللاسلكي» الرئيسية. "
+                    "قد يمنع جدار حماية Windows اكتشاف mDNS على الشبكة الخاصة.",
+                )
+                return
 
-    def _show_frame(self, image):
-        if not self.preview_window or not self.preview_window.winfo_exists():
-            return
-        from PIL import ImageTk
-        image.thumbnail((1600, 1100))
-        self.preview_photo = ImageTk.PhotoImage(image)
-        self.preview_label.configure(image=self.preview_photo, text="")
+            serial = self.wifi_device_map.get(self.wifi_device.get())
+            if not serial and len(devices) == 1:
+                serial = devices[0].serial
+            if not serial:
+                messagebox.showinfo(
+                    "اختر الهاتف",
+                    "عُثر على أكثر من هاتف. اختر الهاتف المطلوب من القائمة ثم اضغط «عرض عبر Wi-Fi».",
+                )
+                return
+            self._start_stream(serial)
+        except MirageError as exc:
+            messagebox.showerror("تعذر عرض الهاتف عبر Wi-Fi", str(exc))
 
     def start(self):
         serial = self.device_map.get(self.device.get())
@@ -278,22 +325,13 @@ class MirageWindow:
                 self.fps_log_handle = None
 
     def stop(self):
-        wifi_was_active = self.wifi_receiver is not None
-        if self.wifi_receiver is not None:
-            self.wifi_receiver.stop()
-            self.wifi_receiver = None
         if self.process and self.process.poll() is None:
             self.process.terminate()
             self.status.set("أُرسل أمر إيقاف العرض.")
-        elif wifi_was_active:
-            self.status.set("تم إيقاف البحث أو عرض Wi-Fi.")
         else:
             self.status.set("لا يوجد بث يعمل حالياً.")
 
     def close(self):
-        if self.wifi_receiver is not None:
-            self.wifi_receiver.stop()
-            self.wifi_receiver = None
         if self.process and self.process.poll() is None:
             self.process.terminate()
         if self.fps_log_handle:
