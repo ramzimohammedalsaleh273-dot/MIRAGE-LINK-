@@ -172,7 +172,10 @@ class MirageWindow:
 
     def refresh(self):
         try:
-            devices = [d for d in self.engine.devices() if d.state == "device" and ":" not in d.serial]
+            devices = [
+                d for d in self.engine.devices()
+                if d.state == "device" and not self.engine.is_wireless_device(d)
+            ]
             self.device_map = {f"{d.serial} | {d.details}": d.serial for d in devices}
             self.combo["values"] = list(self.device_map)
             if devices:
