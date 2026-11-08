@@ -261,3 +261,40 @@ def test_stream_forwards_diagnostic_log_handles(tmp_path):
     )
     assert seen["stdout"] is output
     assert seen["stderr"] is error
+
+@pytest.mark.parametrize(("serial", "expected"), [
+    ("192.168.43.1:42736", True),
+    ("adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp", True),
+    ("CP36T1043200729", False),
+    ("USB123", False),
+])
+def test_wireless_device_recognizes_tcp_and_mdns_serials(serial, expected):
+    assert Engine.is_wireless_device(Device(serial, "device")) is expected
+
+
+def test_wifi_discover_keeps_mDNS_serials_and_excludes_usb(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
+            )
+        if command == ["connect", "192.168.43.1:42736"]:
+            return Result("connected to 192.168.43.1:42736")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\\n"
+                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device product:test model:Phone\\n"
+                "CP36T1043200729 device usb:1 product:test model:Phone\\n"
+            )
+        return Result()
+
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+    assert services["connect"] == ["192.168.43.1:42736"]
+    assert [device.serial for device in devices] == [
+        "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp"
+    ]
+    assert errors == []
