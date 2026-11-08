@@ -279,16 +279,16 @@ def test_wifi_discover_keeps_mDNS_serials_and_excludes_usb(tmp_path):
         command = args[1:]
         if command == ["mdns", "services"]:
             return Result(
-                "List of discovered mdns services\\n"
-                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\n"
             )
         if command == ["connect", "192.168.43.1:42736"]:
             return Result("connected to 192.168.43.1:42736")
         if command == ["devices", "-l"]:
             return Result(
-                "List of devices attached\\n"
-                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device product:test model:Phone\\n"
-                "CP36T1043200729 device usb:1 product:test model:Phone\\n"
+                "List of devices attached\n"
+                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device product:test model:Phone\n"
+                "CP36T1043200729 device usb:1 product:test model:Phone\n"
             )
         return Result()
 
