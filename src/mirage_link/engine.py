@@ -108,6 +108,12 @@ class Engine:
         self._validate_endpoint(endpoint)
         return self.command(["connect", endpoint], timeout=30)
 
+    @staticmethod
+    def is_wireless_device(device: Device) -> bool:
+        """Recognize both TCP address serials and ADB's mDNS TLS service serials."""
+        serial = device.serial.lower()
+        return ":" in serial or "_adb-tls-connect._tcp" in serial
+
     def wifi_discover(self) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
         services = self.mdns_services()
@@ -119,7 +125,7 @@ class Engine:
                 errors.append(str(exc))
         devices = [
             device for device in self.devices()
-            if device.state == "device" and ":" in device.serial
+            if device.state == "device" and self.is_wireless_device(device)
         ]
         return services, devices, errors
 
