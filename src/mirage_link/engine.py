@@ -100,9 +100,14 @@ class Engine:
 
     def pair(self, endpoint: str, code: str) -> str:
         self._validate_endpoint(endpoint)
-        if not code.isdigit() or not (4 <= len(code) <= 12):
-            raise MirageError("رمز الاقتران يجب أن يكون أرقاماً كما يظهر على الهاتف.")
-        return self.command(["pair", endpoint, code], timeout=45)
+        digit_translation = str.maketrans(
+            "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+            "01234567890123456789",
+        )
+        normalized_code = code.translate(digit_translation).strip() if isinstance(code, str) else ""
+        if not re.fullmatch(r"[0-9]{4,12}", normalized_code):
+            raise MirageError("رمز الاقتران يجب أن يكون من 4 إلى 12 رقماً كما يظهر على الهاتف.")
+        return self.command(["pair", endpoint, normalized_code], timeout=45)
 
     def connect(self, endpoint: str) -> str:
         self._validate_endpoint(endpoint)

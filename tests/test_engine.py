@@ -58,7 +58,27 @@ def test_pair_validates_endpoint_and_code(tmp_path):
         engine.pair("192.168.1.2:abc", "123456")
     with pytest.raises(MirageError):
         engine.pair("192.168.1.2:37123", "abc")
+    with pytest.raises(MirageError):
+        engine.pair("192.168.1.2:37123", "²²²²")
     assert engine.pair("192.168.1.2:37123", "123456") == "paired"
+
+
+@pytest.mark.parametrize(("code", "expected"), [
+    ("١٢٣٤٥٦", "123456"),
+    ("۱۲۳۴۵۶", "123456"),
+    (" ١٢٣٤٥٦ ", "123456"),
+])
+def test_pair_normalizes_arabic_and_persian_digits(tmp_path, code, expected):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        seen.append(args)
+        return Result("Successfully paired")
+
+    engine = Engine(adb_path=adb, runner=runner)
+    assert engine.pair("192.168.1.2:37123", code) == "Successfully paired"
+    assert seen == [[adb, "pair", "192.168.1.2:37123", expected]]
 
 
 def test_connect_uses_argument_array_not_shell(tmp_path):
