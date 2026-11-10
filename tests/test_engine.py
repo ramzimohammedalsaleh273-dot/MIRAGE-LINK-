@@ -330,19 +330,19 @@ def test_wifi_pair_and_connect_reports_last_adb_connection_error(tmp_path, monke
             mdns_calls += 1
             if mdns_calls == 1:
                 return Result(
-                    "List of discovered mdns services\\n"
-                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
+                    "List of discovered mdns services\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
                 )
             return Result(
-                "List of discovered mdns services\\n"
-                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\n"
             )
         if command[0] == "pair":
             return Result("Successfully paired")
         if command[0] == "connect":
             return Result(stderr="failed to connect: Connection refused", returncode=1)
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         return Result()
 
     monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
