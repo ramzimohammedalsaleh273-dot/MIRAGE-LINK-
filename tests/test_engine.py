@@ -318,3 +318,34 @@ def test_wifi_discover_keeps_mDNS_serials_and_excludes_usb(tmp_path):
         "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp"
     ]
     assert errors == []
+
+def test_wifi_pair_and_connect_reports_last_adb_connection_error(tmp_path, monkeypatch):
+    adb = fake_tool(tmp_path, "adb")
+    mdns_calls = 0
+
+    def runner(args, **kwargs):
+        nonlocal mdns_calls
+        command = args[1:]
+        if command == ["mdns", "services"]:
+            mdns_calls += 1
+            if mdns_calls == 1:
+                return Result(
+                    "List of discovered mdns services\\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
+                )
+            return Result(
+                "List of discovered mdns services\\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
+            )
+        if command[0] == "pair":
+            return Result("Successfully paired")
+        if command[0] == "connect":
+            return Result(stderr="failed to connect: Connection refused", returncode=1)
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\\n")
+        return Result()
+
+    monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="Connection refused"):
+        engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)

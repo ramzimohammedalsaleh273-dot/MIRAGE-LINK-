@@ -145,7 +145,7 @@ class Engine:
         if not isinstance(retry_interval, (int, float)) or not 0 <= retry_interval <= 5:
             raise MirageError("فاصل المحاولات يجب أن يكون بين 0 و5 ثوانٍ.")
 
-        services, devices, _errors = self.wifi_discover()
+        services, devices, errors = self.wifi_discover()
         if devices:
             return devices
         if not services["pairing"]:
@@ -154,17 +154,22 @@ class Engine:
                 "وافتح «الإقران باستخدام رمز» على الهاتف، ثم أعد المحاولة."
             )
 
+        last_errors = errors
         self.pair(services["pairing"][0], code.strip())
         for _ in range(retries):
             time.sleep(retry_interval)
-            _services, devices, _errors = self.wifi_discover()
+            _services, devices, errors = self.wifi_discover()
             if devices:
                 return devices
+            if errors:
+                last_errors = errors
 
+        detail = f" آخر تفاصيل ADB: {last_errors[-1]}" if last_errors else ""
         raise MirageError(
             "تم إرسال طلب الاقتران، لكن لم يظهر اتصال الهاتف. "
             "ارجع إلى شاشة «تصحيح أخطاء USB اللاسلكي» الرئيسية، "
             "وتأكد أن الهاتف والكمبيوتر على الشبكة نفسها."
+            f"{detail}"
         )
 
     def tcpip(self, port: int = 5555, serial: str | None = None) -> str:

@@ -222,7 +222,9 @@ class MirageWindow:
             elif services["pairing"]:
                 self.status.set("الهاتف جاهز للاقتران الأول. اضغط «عرض عبر Wi-Fi» لإدخال رمز الهاتف.")
             elif errors:
-                self.status.set("عُثر على خدمة الهاتف لكن تعذر الاتصال. تأكد من تفعيل التصحيح اللاسلكي.")
+                self.status.set(f"عُثر على خدمة الاتصال لكن فشل ADB: {errors[-1][:220]}")
+            elif services["connect"]:
+                self.status.set("عُثر على خدمة الاتصال، لكن الهاتف لم يظهر كجهاز جاهز بعد. أعد الاكتشاف بعد لحظات.")
             else:
                 self.status.set(
                     "لم يُكتشف هاتف. اختر شبكة الهاتف أولاً، ثم فعّل تصحيح أخطاء USB اللاسلكي "
@@ -251,14 +253,16 @@ class MirageWindow:
                 services, devices, errors = self._refresh_wireless_devices()
 
             if not devices:
-                messagebox.showwarning(
-                    "لم يظهر الهاتف بعد",
+                message = (
                     "لم يُكتشف الهاتف. تأكد أن الكمبيوتر متصل بنقطة اتصال الهاتف، "
                     "وأن «تصحيح أخطاء USB اللاسلكي» مفعّل. في أول مرة افتح "
                     "«الإقران باستخدام رمز» واترك النافذة مفتوحة ثم أعد المحاولة. "
                     "إذا كان الاقتران محفوظاً، ارجع إلى شاشة «تصحيح أخطاء USB اللاسلكي» الرئيسية. "
-                    "قد يمنع جدار حماية Windows اكتشاف mDNS على الشبكة الخاصة.",
+                    "قد يمنع جدار حماية Windows اكتشاف mDNS على الشبكة الخاصة."
                 )
+                if errors:
+                    message += f"\n\nتفاصيل ADB: {errors[-1][:300]}"
+                messagebox.showwarning("لم يظهر الهاتف بعد", message)
                 return
 
             serial = self.wifi_device_map.get(self.wifi_device.get())
