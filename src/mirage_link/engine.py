@@ -154,6 +154,13 @@ class Engine:
                 "وافتح «الإقران باستخدام رمز» على الهاتف، ثم أعد المحاولة."
             )
 
+        if len(services["pairing"]) > 1:
+            raise MirageError(
+                "اكتُشفت أكثر من خدمة اقتران على الشبكة. حفاظاً على أمان رمز Android، "
+                "لم يُرسل الرمز لأي جهاز. أغلق نافذة الإقران على الأجهزة الأخرى، "
+                "واترك نافذة الهاتف المطلوب مفتوحة، ثم أعد المحاولة."
+            )
+
         last_errors = errors
         self.pair(services["pairing"][0], code.strip())
         for _ in range(retries):

@@ -172,6 +172,30 @@ def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypat
     assert ["connect", "192.168.43.1:42736"] in seen
 
 
+def test_wifi_pair_refuses_ambiguous_pairing_services_without_sending_code(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\n"
+                "adb-phone-a _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
+                "adb-phone-b _adb-tls-pairing._tcp. 192.168.43.2:36227\n"
+            )
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\n")
+        return Result()
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="أكثر من خدمة اقتران"):
+        engine.wifi_pair_and_connect("123456", retries=1, retry_interval=0)
+
+    assert not any(command and command[0] == "pair" for command in seen)
+
+
 def test_wifi_pair_requires_android_pairing_service(tmp_path):
     adb = fake_tool(tmp_path, "adb")
 
