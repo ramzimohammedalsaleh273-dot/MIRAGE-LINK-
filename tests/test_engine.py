@@ -131,6 +131,30 @@ def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
     assert ["connect", "192.168.43.1:43821"] in seen
 
 
+def test_wifi_discover_keeps_existing_wireless_device_when_mdns_fails(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        if command == ["mdns", "services"]:
+            return Result(stderr="mDNS discovery is disabled", returncode=1)
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\\n"
+                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device model:Phone\\n"
+                "USB123 device usb:1 model:Phone\\n"
+            )
+        return Result()
+
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+
+    assert services == {"pairing": [], "connect": []}
+    assert [device.serial for device in devices] == [
+        "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp"
+    ]
+    assert errors == ["mDNS discovery is disabled"]
+
+
 def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypatch):
     adb = fake_tool(tmp_path, "adb")
     seen = []

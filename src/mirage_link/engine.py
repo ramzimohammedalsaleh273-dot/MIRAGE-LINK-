@@ -121,8 +121,14 @@ class Engine:
 
     def wifi_discover(self) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
-        services = self.mdns_services()
         errors: list[str] = []
+        try:
+            services = self.mdns_services()
+        except MirageError as exc:
+            # An already paired wireless device may remain available in ADB
+            # even when mDNS browsing is unavailable on this Windows/network setup.
+            services = {"pairing": [], "connect": []}
+            errors.append(str(exc))
         for endpoint in services["connect"]:
             try:
                 self.connect(endpoint)
