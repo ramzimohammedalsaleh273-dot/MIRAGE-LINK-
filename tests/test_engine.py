@@ -140,9 +140,9 @@ def test_wifi_discover_keeps_existing_wireless_device_when_mdns_fails(tmp_path):
             return Result(stderr="mDNS discovery is disabled", returncode=1)
         if command == ["devices", "-l"]:
             return Result(
-                "List of devices attached\\n"
-                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device model:Phone\\n"
-                "USB123 device usb:1 model:Phone\\n"
+                "List of devices attached\n"
+                "adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp device model:Phone\n"
+                "USB123 device usb:1 model:Phone\n"
             )
         return Result()
 
