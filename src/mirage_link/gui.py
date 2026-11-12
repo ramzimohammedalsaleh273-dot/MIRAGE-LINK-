@@ -221,8 +221,10 @@ class MirageWindow:
                 self.status.set(f"تم اكتشاف {len(devices)} هاتف عبر Wi-Fi. اختر الهاتف ثم اضغط «عرض عبر Wi-Fi».")
             elif services["pairing"]:
                 self.status.set("الهاتف جاهز للاقتران الأول. اضغط «عرض عبر Wi-Fi» لإدخال رمز الهاتف.")
-            elif errors:
+            elif errors and services["connect"]:
                 self.status.set(f"عُثر على خدمة الاتصال لكن فشل ADB: {errors[-1][:220]}")
+            elif errors:
+                self.status.set(f"تعذر فحص خدمات Wi-Fi عبر mDNS: {errors[-1][:220]}")
             elif services["connect"]:
                 self.status.set("عُثر على خدمة الاتصال، لكن الهاتف لم يظهر كجهاز جاهز بعد. أعد الاكتشاف بعد لحظات.")
             else:
