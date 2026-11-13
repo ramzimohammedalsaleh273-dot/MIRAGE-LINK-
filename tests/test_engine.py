@@ -131,6 +131,32 @@ def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
     assert ["connect", "192.168.43.1:43821"] in seen
 
 
+def test_wifi_discover_does_not_connect_to_multiple_paired_phones_automatically(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\\n"
+                "phone-a _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
+                "phone-b _adb-tls-connect._tcp. 192.168.43.2:42737\\n"
+            )
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\\n")
+        return Result()
+
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+
+    assert services["connect"] == ["192.168.43.1:42736", "192.168.43.2:42737"]
+    assert devices == []
+    assert len(errors) == 1
+    assert "أكثر من خدمة اتصال" in errors[0]
+    assert not any(command and command[0] == "connect" for command in seen)
+
+
 def test_wifi_discover_keeps_existing_wireless_device_when_mdns_fails(tmp_path):
     adb = fake_tool(tmp_path, "adb")
 
