@@ -129,11 +129,20 @@ class Engine:
             # even when mDNS browsing is unavailable on this Windows/network setup.
             services = {"pairing": [], "connect": []}
             errors.append(str(exc))
-        for endpoint in services["connect"]:
+        if len(services["connect"]) == 1:
+            # Connect automatically only when discovery identifies one target.
+            # Never initiate sessions with every paired phone on a shared LAN.
             try:
-                self.connect(endpoint)
+                self.connect(services["connect"][0])
             except MirageError as exc:
                 errors.append(str(exc))
+        elif len(services["connect"]) > 1:
+            errors.append(
+                "اكتُشفت أكثر من خدمة اتصال لهواتف مقترنة على الشبكة. "
+                "لم يُنشأ اتصال تلقائي بأي هاتف لتجنب الاتصال بأجهزة غير مقصودة. "
+                "أوقف تصحيح الأخطاء اللاسلكي مؤقتاً على الهواتف الأخرى، "
+                "واترك الهاتف المطلوب فقط ثم أعد الاكتشاف."
+            )
         devices = [
             device for device in self.devices()
             if device.state == "device" and self.is_wireless_device(device)
