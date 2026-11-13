@@ -140,12 +140,12 @@ def test_wifi_discover_does_not_connect_to_multiple_paired_phones_automatically(
         seen.append(command)
         if command == ["mdns", "services"]:
             return Result(
-                "List of discovered mdns services\\n"
-                "phone-a _adb-tls-connect._tcp. 192.168.43.1:42736\\n"
-                "phone-b _adb-tls-connect._tcp. 192.168.43.2:42737\\n"
+                "List of discovered mdns services\n"
+                "phone-a _adb-tls-connect._tcp. 192.168.43.1:42736\n"
+                "phone-b _adb-tls-connect._tcp. 192.168.43.2:42737\n"
             )
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         return Result()
 
     services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
