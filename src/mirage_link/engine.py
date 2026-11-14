@@ -56,11 +56,21 @@ class Engine:
             raise MirageError(f"لم يتم العثور على {name}. ثبّته أو عيّن مساره في PATH أو متغير البيئة.")
         return value
 
-    def command(self, args: Sequence[str], timeout: int = 20) -> str:
+    def command(self, args: Sequence[str], timeout: int = 20,
+                input_text: str | None = None) -> str:
         adb = self._require(self.adb, "ADB")
+        run_kwargs = {
+            "capture_output": True,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+            "timeout": timeout,
+            "check": False,
+        }
+        if input_text is not None:
+            run_kwargs["input"] = input_text
         try:
-            result = self._run([adb, *args], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=timeout, check=False)
+            result = self._run([adb, *args], **run_kwargs)
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise MirageError(f"تعذر تنفيذ ADB: {exc}") from exc
         output = (result.stdout or "") + (result.stderr or "")
@@ -107,7 +117,13 @@ class Engine:
         normalized_code = code.translate(digit_translation).strip() if isinstance(code, str) else ""
         if not re.fullmatch(r"[0-9]{4,12}", normalized_code):
             raise MirageError("رمز الاقتران يجب أن يكون من 4 إلى 12 رقماً كما يظهر على الهاتف.")
-        return self.command(["pair", endpoint, normalized_code], timeout=45)
+        # ADB supports an interactive pairing prompt. Send the temporary code
+        # through stdin instead of exposing it in the process command line.
+        return self.command(
+            ["pair", endpoint],
+            timeout=45,
+            input_text=f"{normalized_code}\\n",
+        )
 
     def connect(self, endpoint: str) -> str:
         self._validate_endpoint(endpoint)

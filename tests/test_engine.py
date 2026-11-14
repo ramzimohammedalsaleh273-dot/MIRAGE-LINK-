@@ -73,12 +73,14 @@ def test_pair_normalizes_arabic_and_persian_digits(tmp_path, code, expected):
     seen = []
 
     def runner(args, **kwargs):
-        seen.append(args)
+        seen.append((args, kwargs))
         return Result("Successfully paired")
 
     engine = Engine(adb_path=adb, runner=runner)
     assert engine.pair("192.168.1.2:37123", code) == "Successfully paired"
-    assert seen == [[adb, "pair", "192.168.1.2:37123", expected]]
+    assert seen[0][0] == [adb, "pair", "192.168.1.2:37123"]
+    assert seen[0][1]["input"] == expected + "\\n"
+    assert expected not in seen[0][0]
 
 
 def test_connect_uses_argument_array_not_shell(tmp_path):
@@ -184,12 +186,15 @@ def test_wifi_discover_keeps_existing_wireless_device_when_mdns_fails(tmp_path):
 def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypatch):
     adb = fake_tool(tmp_path, "adb")
     seen = []
+    pair_inputs = []
     mdns_calls = 0
 
     def runner(args, **kwargs):
         nonlocal mdns_calls
         command = args[1:]
         seen.append(command)
+        if command and command[0] == "pair":
+            pair_inputs.append(kwargs.get("input"))
         if command == ["mdns", "services"]:
             mdns_calls += 1
             if mdns_calls == 1:
@@ -218,7 +223,8 @@ def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypat
     engine = Engine(adb_path=adb, runner=runner)
     devices = engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
     assert [device.serial for device in devices] == ["192.168.43.1:42736"]
-    assert ["pair", "192.168.43.1:36127", "123456"] in seen
+    assert ["pair", "192.168.43.1:36127"] in seen
+    assert pair_inputs == ["123456\\n"]
     assert ["connect", "192.168.43.1:42736"] in seen
 
 
