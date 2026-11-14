@@ -79,7 +79,7 @@ def test_pair_normalizes_arabic_and_persian_digits(tmp_path, code, expected):
     engine = Engine(adb_path=adb, runner=runner)
     assert engine.pair("192.168.1.2:37123", code) == "Successfully paired"
     assert seen[0][0] == [adb, "pair", "192.168.1.2:37123"]
-    assert seen[0][1]["input"] == expected + "\\n"
+    assert seen[0][1]["input"] == expected + "\n"
     assert expected not in seen[0][0]
 
 
@@ -224,7 +224,7 @@ def test_wifi_pair_and_connect_uses_advertised_dynamic_ports(tmp_path, monkeypat
     devices = engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
     assert [device.serial for device in devices] == ["192.168.43.1:42736"]
     assert ["pair", "192.168.43.1:36127"] in seen
-    assert pair_inputs == ["123456\\n"]
+    assert pair_inputs == ["123456\n"]
     assert ["connect", "192.168.43.1:42736"] in seen
 
 

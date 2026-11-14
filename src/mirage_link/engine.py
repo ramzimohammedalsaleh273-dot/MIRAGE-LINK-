@@ -122,7 +122,7 @@ class Engine:
         return self.command(
             ["pair", endpoint],
             timeout=45,
-            input_text=f"{normalized_code}\\n",
+            input_text=f"{normalized_code}\n",
         )
 
     def connect(self, endpoint: str) -> str:
