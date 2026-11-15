@@ -247,8 +247,9 @@ class MirageWindow:
             if not devices and services["pairing"]:
                 code = simpledialog.askstring(
                     "الاقتران الأول",
-                    "أدخل رمز الاقتران الظاهر في نافذة «الإقران باستخدام رمز» على الهاتف:",
+                    "أدخل رمز الاقتران الظاهر على الهاتف (سيظهر مخفياً أثناء الكتابة):",
                     parent=self.root,
+                    show="*",
                 )
                 if code is None:
                     self.status.set("أُلغي الاقتران. يمكنك المحاولة متى شئت.")
