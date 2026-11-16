@@ -115,11 +115,11 @@ def test_endpoint_validation_allows_private_and_link_local_addresses():
 def test_mdns_services_skips_non_unicast_endpoints(tmp_path):
     adb = fake_tool(tmp_path, "adb")
     output = (
-        "List of discovered mdns services\\n"
-        "bad-zero _adb-tls-connect._tcp. 0.0.0.0:42736\\n"
-        "bad-loopback _adb-tls-connect._tcp. 127.0.0.1:42737\\n"
-        "bad-multicast _adb-tls-connect._tcp. 224.0.0.251:42738\\n"
-        "good-hotspot _adb-tls-connect._tcp. 192.168.43.1:42739\\n"
+        "List of discovered mdns services\n"
+        "bad-zero _adb-tls-connect._tcp. 0.0.0.0:42736\n"
+        "bad-loopback _adb-tls-connect._tcp. 127.0.0.1:42737\n"
+        "bad-multicast _adb-tls-connect._tcp. 224.0.0.251:42738\n"
+        "good-hotspot _adb-tls-connect._tcp. 192.168.43.1:42739\n"
     )
     engine = Engine(adb_path=adb, runner=lambda *a, **k: Result(output))
     assert engine.mdns_services()["connect"] == ["192.168.43.1:42739"]
