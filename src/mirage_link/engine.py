@@ -222,9 +222,19 @@ class Engine:
             raise MirageError("عنوان الهاتف المكتشف غير صالح.")
         host, port = endpoint.rsplit(":", 1)
         try:
-            ipaddress.IPv4Address(host)
+            address = ipaddress.IPv4Address(host)
         except ipaddress.AddressValueError as exc:
             raise MirageError("عنوان IP المكتشف غير صالح.") from exc
+        # A wireless-debugging endpoint must be a real LAN destination.
+        # Keep private and link-local addresses valid for phone hotspots,
+        # but reject non-routable special destinations before invoking ADB.
+        if (
+            address.is_unspecified
+            or address.is_loopback
+            or address.is_multicast
+            or address == ipaddress.IPv4Address("255.255.255.255")
+        ):
+            raise MirageError("عنوان IP المكتشف ليس عنواناً صالحاً لجهاز على الشبكة المحلية.")
         if not port.isdigit() or not 1 <= int(port) <= 65535:
             raise MirageError("رقم المنفذ المكتشف غير صالح.")
 

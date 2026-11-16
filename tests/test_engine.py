@@ -97,10 +97,32 @@ def test_connect_uses_argument_array_not_shell(tmp_path):
 @pytest.mark.parametrize("endpoint", [
     "999.1.1.1:5555", "192.168.1.1:0", "192.168.1.1:65536",
     "phone.local:5555", "192.168.1.1", "192.168.1.1:abc",
+    "0.0.0.0:5555", "127.0.0.1:5555",
+    "224.0.0.251:5353", "255.255.255.255:5555",
 ])
 def test_endpoint_validation_rejects_invalid_ipv4_or_port(endpoint):
     with pytest.raises(MirageError):
         Engine._validate_endpoint(endpoint)
+
+
+def test_endpoint_validation_allows_private_and_link_local_addresses():
+    # Android hotspots commonly use private IPv4; direct local links may use
+    # IPv4 link-local. Neither should be rejected by the safety check.
+    Engine._validate_endpoint("192.168.43.1:42736")
+    Engine._validate_endpoint("169.254.43.1:42736")
+
+
+def test_mdns_services_skips_non_unicast_endpoints(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    output = (
+        "List of discovered mdns services\\n"
+        "bad-zero _adb-tls-connect._tcp. 0.0.0.0:42736\\n"
+        "bad-loopback _adb-tls-connect._tcp. 127.0.0.1:42737\\n"
+        "bad-multicast _adb-tls-connect._tcp. 224.0.0.251:42738\\n"
+        "good-hotspot _adb-tls-connect._tcp. 192.168.43.1:42739\\n"
+    )
+    engine = Engine(adb_path=adb, runner=lambda *a, **k: Result(output))
+    assert engine.mdns_services()["connect"] == ["192.168.43.1:42739"]
 
 
 def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
