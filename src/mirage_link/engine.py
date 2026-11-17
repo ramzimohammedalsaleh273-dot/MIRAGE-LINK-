@@ -180,10 +180,17 @@ class Engine:
         if devices:
             return devices
         if not services["pairing"]:
-            raise MirageError(
+            message = (
                 "لم تظهر خدمة الاقتران. فعّل «تصحيح أخطاء USB اللاسلكي» "
                 "وافتح «الإقران باستخدام رمز» على الهاتف، ثم أعد المحاولة."
             )
+            if errors:
+                # Preserve the underlying ADB/mDNS diagnostic so the user can
+                # distinguish a network discovery failure from a closed pairing screen.
+                detail = errors[-1].strip()
+                if detail:
+                    message += f"\\nتفاصيل اكتشاف mDNS: {detail[:300]}"
+            raise MirageError(message)
 
         if len(services["pairing"]) > 1:
             raise MirageError(
