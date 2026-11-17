@@ -461,7 +461,7 @@ def test_wifi_pair_and_connect_preserves_mdns_discovery_error(tmp_path):
         if args[1:] == ["mdns", "services"]:
             return Result(stderr="mDNS discovery unavailable: network browse failed", returncode=1)
         if args[1:] == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         if args[1:2] == ["pair"]:
             pytest.fail("pair must not run when no pairing service was discovered")
         return Result()

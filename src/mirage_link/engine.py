@@ -189,7 +189,7 @@ class Engine:
                 # distinguish a network discovery failure from a closed pairing screen.
                 detail = errors[-1].strip()
                 if detail:
-                    message += f"\\nتفاصيل اكتشاف mDNS: {detail[:300]}"
+                    message += f"\nتفاصيل اكتشاف mDNS: {detail[:300]}"
             raise MirageError(message)
 
         if len(services["pairing"]) > 1:
