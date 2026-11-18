@@ -144,7 +144,23 @@ class Engine:
             # An already paired wireless device may remain available in ADB
             # even when mDNS browsing is unavailable on this Windows/network setup.
             services = {"pairing": [], "connect": []}
-            errors.append(str(exc))
+            # Check the local ADB mDNS backend only after browsing fails. This
+            # distinguishes an unavailable ADB discovery component from a
+            # network that blocks service browsing, without changing networking.
+            try:
+                mdns_status = self.command(["mdns", "check"], timeout=5)
+            except MirageError as check_exc:
+                errors.append(
+                    f"{exc}؛ تعذر فحص مكوّن mDNS في ADB: {check_exc}"
+                )
+            else:
+                if mdns_status:
+                    backend_line = mdns_status.splitlines()[0][:160]
+                    errors.append(
+                        f"{exc}؛ حالة مكوّن mDNS في ADB: {backend_line}"
+                    )
+                else:
+                    errors.append(str(exc))
         if len(services["connect"]) == 1:
             # Connect automatically only when discovery identifies one target.
             # Never initiate sessions with every paired phone on a shared LAN.

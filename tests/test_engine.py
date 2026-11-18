@@ -471,3 +471,26 @@ def test_wifi_pair_and_connect_preserves_mdns_discovery_error(tmp_path):
         engine.wifi_pair_and_connect("123456")
     assert ["pair", "192.168.43.1:37123"] not in seen
 
+def test_wifi_discover_reports_adb_mdns_backend_when_browsing_fails(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            return Result(stderr="mDNS discovery unavailable: network browse failed", returncode=1)
+        if command == ["mdns", "check"]:
+            return Result("mdns daemon version [Openscreen discovery 0.0.0]")
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\n")
+        return Result()
+
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+
+    assert services == {"pairing": [], "connect": []}
+    assert devices == []
+    assert len(errors) == 1
+    assert "network browse failed" in errors[0]
+    assert "mdns daemon version [Openscreen discovery 0.0.0]" in errors[0]
+    assert seen[:3] == [["mdns", "services"], ["mdns", "check"], ["devices", "-l"]]
