@@ -135,7 +135,7 @@ class Engine:
         serial = device.serial.lower()
         return ":" in serial or "_adb-tls-connect._tcp" in serial
 
-    def wifi_discover(self) -> tuple[dict[str, list[str]], list[Device], list[str]]:
+    def wifi_discover(self, *, diagnose_empty: bool = True) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
         errors: list[str] = []
         try:
@@ -161,6 +161,31 @@ class Engine:
                     )
                 else:
                     errors.append(str(exc))
+        else:
+            # A successful browse with zero services is different from a failed
+            # ADB command. Check the local backend once so the UI can distinguish
+            # "ADB mDNS is unavailable" from "no phone service reached this PC".
+            if diagnose_empty and not services["pairing"] and not services["connect"]:
+                try:
+                    mdns_status = self.command(["mdns", "check"], timeout=5)
+                except MirageError as check_exc:
+                    errors.append(
+                        "لم يُعلن mDNS أي خدمة، وتعذر فحص مكوّن mDNS المحلي في ADB: "
+                        f"{check_exc}"
+                    )
+                else:
+                    backend_line = mdns_status.splitlines()[0][:160] if mdns_status else ""
+                    if backend_line:
+                        errors.append(
+                            "لم تصل أي خدمة Android عبر mDNS رغم استجابة مكوّن ADB المحلي "
+                            f"({backend_line}). تأكد من تفعيل «تصحيح أخطاء Wi-Fi»، "
+                            "وافتح نافذة «الإقران باستخدام رمز» في المرة الأولى. "
+                            "إذا استمر غياب الخدمات فقد تمنع نقطة الاتصال تبادل mDNS بين الأجهزة."
+                        )
+                    else:
+                        errors.append(
+                            "لم يُعلن mDNS أي خدمة Android، كما لم يُرجع فحص المكوّن المحلي معلومات."
+                        )
         if len(services["connect"]) == 1:
             # Connect automatically only when discovery identifies one target.
             # Never initiate sessions with every paired phone on a shared LAN.
@@ -219,7 +244,7 @@ class Engine:
         self.pair(services["pairing"][0], code.strip())
         for _ in range(retries):
             time.sleep(retry_interval)
-            _services, devices, errors = self.wifi_discover()
+            _services, devices, errors = self.wifi_discover(diagnose_empty=False)
             if devices:
                 return devices
             if errors:

@@ -226,7 +226,7 @@ class MirageWindow:
             elif errors and services["connect"]:
                 self.status.set(f"عُثر على خدمة الاتصال لكن فشل ADB: {errors[-1][:220]}")
             elif errors:
-                self.status.set(f"تعذر فحص خدمات Wi-Fi عبر mDNS: {errors[-1][:220]}")
+                self.status.set(f"لم تُكتشف خدمة هاتف عبر Wi-Fi: {errors[-1][:220]}")
             elif services["connect"]:
                 self.status.set("عُثر على خدمة الاتصال، لكن الهاتف لم يظهر كجهاز جاهز بعد. أعد الاكتشاف بعد لحظات.")
             else:

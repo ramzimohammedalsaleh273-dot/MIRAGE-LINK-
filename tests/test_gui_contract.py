@@ -19,3 +19,10 @@ def test_wifi_pairing_code_prompt_is_masked():
     assert len(calls) == 1
     options = {keyword.arg: keyword.value for keyword in calls[0].keywords}
     assert ast.literal_eval(options["show"]) == "*"
+
+
+
+def test_wifi_discovery_status_uses_neutral_wording_for_empty_results():
+    source = Path("src/mirage_link/gui.py").read_text(encoding="utf-8")
+    assert "لم تُكتشف خدمة هاتف عبر Wi-Fi:" in source
+    assert "تعذر فحص خدمات Wi-Fi عبر mDNS:" not in source
