@@ -504,11 +504,11 @@ def test_wifi_discover_diagnoses_successful_empty_mdns_browse(tmp_path):
         command = args[1:]
         seen.append(command)
         if command == ["mdns", "services"]:
-            return Result("List of discovered mdns services\\n")
+            return Result("List of discovered mdns services\n")
         if command == ["mdns", "check"]:
             return Result("mdns daemon version [Openscreen discovery 0.0.0]")
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         return Result()
 
     services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
@@ -534,14 +534,14 @@ def test_wifi_pair_retry_does_not_repeat_empty_mdns_backend_check(tmp_path, monk
             mdns_calls += 1
             if mdns_calls == 1:
                 return Result(
-                    "List of discovered mdns services\\n"
-                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
+                    "List of discovered mdns services\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
                 )
-            return Result("List of discovered mdns services\\n")
+            return Result("List of discovered mdns services\n")
         if command[0] == "pair":
             return Result("Successfully paired")
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         if command == ["mdns", "check"]:
             return Result("mdns daemon version [Openscreen discovery 0.0.0]")
         return Result()
