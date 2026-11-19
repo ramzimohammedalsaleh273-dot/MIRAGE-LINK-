@@ -521,7 +521,7 @@ def test_wifi_discover_diagnoses_successful_empty_mdns_browse(tmp_path):
     assert seen == [["mdns", "services"], ["mdns", "check"], ["devices", "-l"]]
 
 
-def test_wifi_pair_retry_does_not_repeat_empty_mdns_backend_check(tmp_path, monkeypatch):
+def test_wifi_pair_retry_checks_empty_mdns_backend_only_on_final_attempt(tmp_path, monkeypatch):
     adb = fake_tool(tmp_path, "adb")
     seen = []
     mdns_calls = 0
@@ -534,22 +534,22 @@ def test_wifi_pair_retry_does_not_repeat_empty_mdns_backend_check(tmp_path, monk
             mdns_calls += 1
             if mdns_calls == 1:
                 return Result(
-                    "List of discovered mdns services\n"
-                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
+                    "List of discovered mdns services\\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
                 )
-            return Result("List of discovered mdns services\n")
+            return Result("List of discovered mdns services\\n")
         if command[0] == "pair":
             return Result("Successfully paired")
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\n")
+            return Result("List of devices attached\\n")
         if command == ["mdns", "check"]:
             return Result("mdns daemon version [Openscreen discovery 0.0.0]")
         return Result()
 
     monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
     engine = Engine(adb_path=adb, runner=runner)
-    with pytest.raises(MirageError, match="لم يظهر اتصال الهاتف"):
+    with pytest.raises(MirageError, match="لم تصل أي خدمة Android عبر mDNS"):
         engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
 
-    assert ["mdns", "check"] not in seen
+    assert seen.count(["mdns", "check"]) == 1
     assert seen.count(["mdns", "services"]) == 3

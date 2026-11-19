@@ -242,9 +242,14 @@ class Engine:
 
         last_errors = errors
         self.pair(services["pairing"][0], code.strip())
-        for _ in range(retries):
+        for attempt in range(retries):
             time.sleep(retry_interval)
-            _services, devices, errors = self.wifi_discover(diagnose_empty=False)
+            # Avoid spawning an extra ADB process on every short retry. If the
+            # device still has not appeared, diagnose an empty browse once at
+            # the final attempt so the user receives a useful last explanation.
+            _services, devices, errors = self.wifi_discover(
+                diagnose_empty=(attempt == retries - 1)
+            )
             if devices:
                 return devices
             if errors:
