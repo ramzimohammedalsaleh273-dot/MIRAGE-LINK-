@@ -386,9 +386,14 @@ def test_stream_forwards_diagnostic_log_handles(tmp_path):
 
 @pytest.mark.parametrize(("serial", "expected"), [
     ("192.168.43.1:42736", True),
+    ("169.254.43.1:42736", True),
     ("adb-CP36T1043200729-QXjCrW._adb-tls-connect._tcp", True),
     ("CP36T1043200729", False),
     ("USB123", False),
+    ("USB:SERIAL", False),
+    ("ABC:123", False),
+    ("192.168.43.1:notaport", False),
+    ("127.0.0.1:5555", False),
 ])
 def test_wireless_device_recognizes_tcp_and_mdns_serials(serial, expected):
     assert Engine.is_wireless_device(Device(serial, "device")) is expected

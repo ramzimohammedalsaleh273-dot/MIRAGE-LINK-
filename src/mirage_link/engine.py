@@ -131,9 +131,15 @@ class Engine:
 
     @staticmethod
     def is_wireless_device(device: Device) -> bool:
-        """Recognize both TCP address serials and ADB's mDNS TLS service serials."""
+        """Recognize validated IP:port serials and ADB's mDNS TLS service serials."""
         serial = device.serial.lower()
-        return ":" in serial or "_adb-tls-connect._tcp" in serial
+        if "_adb-tls-connect._tcp" in serial:
+            return True
+        try:
+            Engine._validate_endpoint(device.serial)
+        except MirageError:
+            return False
+        return True
 
     def wifi_discover(self, *, diagnose_empty: bool = True) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
