@@ -133,7 +133,10 @@ class Engine:
     def is_wireless_device(device: Device) -> bool:
         """Recognize validated IP:port serials and ADB's mDNS TLS service serials."""
         serial = device.serial.lower()
-        if "_adb-tls-connect._tcp" in serial:
+        # ADB mDNS serials have a generated "adb-<device>-<instance>" prefix
+        # and the service suffix. Match the complete form so an unrelated
+        # USB serial containing this text cannot be classified as wireless.
+        if re.fullmatch(r"adb-[^\\s]+-[^\\s]+\\._adb-tls-connect\\._tcp", serial):
             return True
         try:
             Engine._validate_endpoint(device.serial)
