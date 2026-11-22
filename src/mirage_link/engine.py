@@ -16,6 +16,17 @@ from pathlib import Path
 from typing import Sequence
 
 
+# Android Wireless Debugging is a LAN feature. Accept common hotspot/LAN
+# ranges, including RFC1918, IPv4 link-local, and RFC6598 shared space.
+_WIFI_ENDPOINT_NETWORKS = (
+    ipaddress.IPv4Network("10.0.0.0/8"),
+    ipaddress.IPv4Network("172.16.0.0/12"),
+    ipaddress.IPv4Network("192.168.0.0/16"),
+    ipaddress.IPv4Network("169.254.0.0/16"),
+    ipaddress.IPv4Network("100.64.0.0/10"),
+)
+
+
 class MirageError(RuntimeError):
     """Expected, user-facing MIRAGE LINK error."""
 
@@ -287,16 +298,17 @@ class Engine:
             address = ipaddress.IPv4Address(host)
         except ipaddress.AddressValueError as exc:
             raise MirageError("عنوان IP المكتشف غير صالح.") from exc
-        # A wireless-debugging endpoint must be a real LAN destination.
-        # Keep private and link-local addresses valid for phone hotspots,
-        # but reject non-routable special destinations before invoking ADB.
+        # Wireless debugging is a local-network feature. Accept private,
+        # link-local, and shared hotspot ranges, but never let an mDNS
+        # advertisement direct ADB to a public Internet address.
         if (
             address.is_unspecified
             or address.is_loopback
             or address.is_multicast
             or address == ipaddress.IPv4Address("255.255.255.255")
+            or not any(address in network for network in _WIFI_ENDPOINT_NETWORKS)
         ):
-            raise MirageError("عنوان IP المكتشف ليس عنواناً صالحاً لجهاز على الشبكة المحلية.")
+            raise MirageError("عنوان IP المكتشف ليس ضمن نطاقات الشبكات المحلية المسموح بها.")
         if not port.isdigit() or not 1 <= int(port) <= 65535:
             raise MirageError("رقم المنفذ المكتشف غير صالح.")
 

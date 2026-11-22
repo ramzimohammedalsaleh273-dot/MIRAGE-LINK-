@@ -83,6 +83,21 @@ def test_pair_normalizes_arabic_and_persian_digits(tmp_path, code, expected):
     assert expected not in seen[0][0]
 
 
+def test_connect_rejects_public_endpoint_before_invoking_adb(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        seen.append(args)
+        return Result("connected")
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="نطاقات الشبكات المحلية"):
+        engine.connect("8.8.8.8:5555")
+
+    assert seen == []
+
+
 def test_connect_uses_argument_array_not_shell(tmp_path):
     adb = fake_tool(tmp_path, "adb")
     seen = []
@@ -99,30 +114,38 @@ def test_connect_uses_argument_array_not_shell(tmp_path):
     "phone.local:5555", "192.168.1.1", "192.168.1.1:abc",
     "0.0.0.0:5555", "127.0.0.1:5555",
     "224.0.0.251:5353", "255.255.255.255:5555",
+    "8.8.8.8:5555", "1.1.1.1:5555",
 ])
 def test_endpoint_validation_rejects_invalid_ipv4_or_port(endpoint):
     with pytest.raises(MirageError):
         Engine._validate_endpoint(endpoint)
 
 
-def test_endpoint_validation_allows_private_and_link_local_addresses():
-    # Android hotspots commonly use private IPv4; direct local links may use
-    # IPv4 link-local. Neither should be rejected by the safety check.
-    Engine._validate_endpoint("192.168.43.1:42736")
-    Engine._validate_endpoint("169.254.43.1:42736")
+def test_endpoint_validation_allows_hotspot_private_shared_and_link_local_ranges():
+    # Android hotspots commonly use RFC1918 IPv4; some tethering environments
+    # may use RFC6598 shared space or IPv4 link-local.
+    for endpoint in (
+        "10.0.0.2:42736",
+        "172.20.10.1:42736",
+        "192.168.43.1:42736",
+        "100.64.0.2:42736",
+        "169.254.43.1:42736",
+    ):
+        Engine._validate_endpoint(endpoint)
 
 
-def test_mdns_services_skips_non_unicast_endpoints(tmp_path):
+def test_mdns_services_skips_non_local_or_non_unicast_endpoints(tmp_path):
     adb = fake_tool(tmp_path, "adb")
     output = (
         "List of discovered mdns services\n"
         "bad-zero _adb-tls-connect._tcp. 0.0.0.0:42736\n"
         "bad-loopback _adb-tls-connect._tcp. 127.0.0.1:42737\n"
         "bad-multicast _adb-tls-connect._tcp. 224.0.0.251:42738\n"
-        "good-hotspot _adb-tls-connect._tcp. 192.168.43.1:42739\n"
+        "bad-public _adb-tls-connect._tcp. 8.8.8.8:42739\n"
+        "good-hotspot _adb-tls-connect._tcp. 192.168.43.1:42740\n"
     )
     engine = Engine(adb_path=adb, runner=lambda *a, **k: Result(output))
-    assert engine.mdns_services()["connect"] == ["192.168.43.1:42739"]
+    assert engine.mdns_services()["connect"] == ["192.168.43.1:42740"]
 
 
 def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
@@ -397,6 +420,7 @@ def test_stream_forwards_diagnostic_log_handles(tmp_path):
     ("ABC:123", False),
     ("192.168.43.1:notaport", False),
     ("127.0.0.1:5555", False),
+    ("8.8.8.8:5555", False),
 ])
 def test_wireless_device_recognizes_tcp_and_mdns_serials(serial, expected):
     assert Engine.is_wireless_device(Device(serial, "device")) is expected
