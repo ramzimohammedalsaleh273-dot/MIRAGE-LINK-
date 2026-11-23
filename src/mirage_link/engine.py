@@ -155,6 +155,39 @@ class Engine:
             return False
         return True
 
+    @staticmethod
+    def _is_transient_wifi_connect_error(error: MirageError) -> bool:
+        """Return whether an ADB connect failure is likely caused by timing/network readiness."""
+        message = str(error).casefold()
+        return any(
+            marker in message
+            for marker in (
+                "connection refused",
+                "actively refused",
+                "timed out",
+                "timeout",
+                "no route to host",
+                "network is unreachable",
+                "host is unreachable",
+                "temporary failure",
+            )
+        )
+
+    def _connect_discovered_endpoint(self, endpoint: str) -> str:
+        """Retry one transient connection failure for a single mDNS-selected phone."""
+        try:
+            return self.connect(endpoint)
+        except MirageError as first_error:
+            if not self._is_transient_wifi_connect_error(first_error):
+                raise
+            time.sleep(0.35)
+            try:
+                return self.connect(endpoint)
+            except MirageError as retry_error:
+                raise MirageError(
+                    f"{retry_error}؛ فشلت إعادة المحاولة مرة واحدة بعد الخطأ الأول: {first_error}"
+                ) from retry_error
+
     def wifi_discover(self, *, diagnose_empty: bool = True) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
         errors: list[str] = []
@@ -210,7 +243,7 @@ class Engine:
             # Connect automatically only when discovery identifies one target.
             # Never initiate sessions with every paired phone on a shared LAN.
             try:
-                self.connect(services["connect"][0])
+                self._connect_discovered_endpoint(services["connect"][0])
             except MirageError as exc:
                 errors.append(str(exc))
         elif len(services["connect"]) > 1:
