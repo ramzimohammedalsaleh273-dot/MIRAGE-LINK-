@@ -178,6 +178,68 @@ def test_wifi_discover_connects_dynamic_endpoint_and_filters_usb(tmp_path):
     assert ["connect", "192.168.43.1:43821"] in seen
 
 
+
+def test_wifi_discover_retries_once_after_transient_connection_refusal(tmp_path, monkeypatch):
+    adb = fake_tool(tmp_path, "adb")
+    connect_attempts = 0
+
+    def runner(args, **kwargs):
+        nonlocal connect_attempts
+        command = args[1:]
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:43821\n"
+            )
+        if command == ["connect", "192.168.43.1:43821"]:
+            connect_attempts += 1
+            if connect_attempts == 1:
+                return Result(stderr="failed to connect: Connection refused", returncode=1)
+            return Result("connected")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\n"
+                "192.168.43.1:43821 device model:Phone\n"
+            )
+        return Result()
+
+    monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+
+    assert services["connect"] == ["192.168.43.1:43821"]
+    assert connect_attempts == 2
+    assert [device.serial for device in devices] == ["192.168.43.1:43821"]
+    assert errors == []
+
+
+def test_wifi_discover_does_not_retry_non_transient_connection_error(tmp_path, monkeypatch):
+    adb = fake_tool(tmp_path, "adb")
+    connect_attempts = 0
+
+    def runner(args, **kwargs):
+        nonlocal connect_attempts
+        command = args[1:]
+        if command == ["mdns", "services"]:
+            return Result(
+                "List of discovered mdns services\n"
+                "adb-phone _adb-tls-connect._tcp. 192.168.43.1:43821\n"
+            )
+        if command == ["connect", "192.168.43.1:43821"]:
+            connect_attempts += 1
+            return Result(stderr="error: device unauthorized", returncode=1)
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\n")
+        return Result()
+
+    monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
+    services, devices, errors = Engine(adb_path=adb, runner=runner).wifi_discover()
+
+    assert services["connect"] == ["192.168.43.1:43821"]
+    assert connect_attempts == 1
+    assert devices == []
+    assert errors == ["error: device unauthorized"]
+
+
 def test_wifi_discover_does_not_connect_to_multiple_paired_phones_automatically(tmp_path):
     adb = fake_tool(tmp_path, "adb")
     seen = []
