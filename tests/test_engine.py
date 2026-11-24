@@ -676,13 +676,12 @@ def test_wifi_pair_retry_defers_failed_mdns_backend_check_until_final_attempt(tm
     monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
     engine = Engine(adb_path=adb, runner=runner)
 
-    with pytest.raises(MirageError, match="network browse failed"):
+    with pytest.raises(MirageError, match="network browse failed") as exc_info:
         engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
 
     assert seen.count(["mdns", "services"]) == 3
     assert seen.count(["mdns", "check"]) == 1
-    # The backend diagnostic is deferred until the final post-pair poll.
-    assert seen.index(["mdns", "check"]) > seen.index(["mdns", "services"], 1)
-    assert "mdns daemon version [Openscreen discovery 0.0.0]" in str(
-        pytest.raises if False else "mdns daemon version [Openscreen discovery 0.0.0]"
-    )
+    # The backend diagnostic is deferred until after the final failed browse.
+    service_positions = [i for i, command in enumerate(seen) if command == ["mdns", "services"]]
+    assert seen.index(["mdns", "check"]) > service_positions[-1]
+    assert "mdns daemon version [Openscreen discovery 0.0.0]" in str(exc_info.value)
