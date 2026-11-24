@@ -188,7 +188,9 @@ class Engine:
                     f"{retry_error}؛ فشلت إعادة المحاولة مرة واحدة بعد الخطأ الأول: {first_error}"
                 ) from retry_error
 
-    def wifi_discover(self, *, diagnose_empty: bool = True) -> tuple[dict[str, list[str]], list[Device], list[str]]:
+    def wifi_discover(
+        self, *, diagnose_empty: bool = True, diagnose_failure: bool = True
+    ) -> tuple[dict[str, list[str]], list[Device], list[str]]:
         """Discover and connect Android wireless-debugging devices without USB."""
         errors: list[str] = []
         try:
@@ -197,23 +199,26 @@ class Engine:
             # An already paired wireless device may remain available in ADB
             # even when mDNS browsing is unavailable on this Windows/network setup.
             services = {"pairing": [], "connect": []}
-            # Check the local ADB mDNS backend only after browsing fails. This
-            # distinguishes an unavailable ADB discovery component from a
-            # network that blocks service browsing, without changing networking.
-            try:
-                mdns_status = self.command(["mdns", "check"], timeout=5)
-            except MirageError as check_exc:
-                errors.append(
-                    f"{exc}؛ تعذر فحص مكوّن mDNS في ADB: {check_exc}"
-                )
-            else:
-                if mdns_status:
-                    backend_line = mdns_status.splitlines()[0][:160]
+            if diagnose_failure:
+                # Check the local ADB mDNS backend after a failed browse. During
+                # short pairing polls, defer this extra process until the final
+                # attempt so repeated discovery failures do not add avoidable delay.
+                try:
+                    mdns_status = self.command(["mdns", "check"], timeout=5)
+                except MirageError as check_exc:
                     errors.append(
-                        f"{exc}؛ حالة مكوّن mDNS في ADB: {backend_line}"
+                        f"{exc}؛ تعذر فحص مكوّن mDNS في ADB: {check_exc}"
                     )
                 else:
-                    errors.append(str(exc))
+                    if mdns_status:
+                        backend_line = mdns_status.splitlines()[0][:160]
+                        errors.append(
+                            f"{exc}؛ حالة مكوّن mDNS في ADB: {backend_line}"
+                        )
+                    else:
+                        errors.append(str(exc))
+            else:
+                errors.append(str(exc))
         else:
             # A successful browse with zero services is different from a failed
             # ADB command. Check the local backend once so the UI can distinguish
@@ -301,7 +306,8 @@ class Engine:
             # device still has not appeared, diagnose an empty browse once at
             # the final attempt so the user receives a useful last explanation.
             _services, devices, errors = self.wifi_discover(
-                diagnose_empty=(attempt == retries - 1)
+                diagnose_empty=(attempt == retries - 1),
+                diagnose_failure=(attempt == retries - 1),
             )
             if devices:
                 return devices
