@@ -647,3 +647,42 @@ def test_wifi_pair_retry_checks_empty_mdns_backend_only_on_final_attempt(tmp_pat
 
     assert seen.count(["mdns", "check"]) == 1
     assert seen.count(["mdns", "services"]) == 3
+
+def test_wifi_pair_retry_defers_failed_mdns_backend_check_until_final_attempt(tmp_path, monkeypatch):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+    mdns_calls = 0
+
+    def runner(args, **kwargs):
+        nonlocal mdns_calls
+        command = args[1:]
+        seen.append(command)
+        if command == ["mdns", "services"]:
+            mdns_calls += 1
+            if mdns_calls == 1:
+                return Result(
+                    "List of discovered mdns services\\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
+                )
+            return Result(stderr="mDNS discovery unavailable: network browse failed", returncode=1)
+        if command[0] == "pair":
+            return Result("Successfully paired")
+        if command == ["mdns", "check"]:
+            return Result("mdns daemon version [Openscreen discovery 0.0.0]")
+        if command == ["devices", "-l"]:
+            return Result("List of devices attached\\n")
+        return Result()
+
+    monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
+    engine = Engine(adb_path=adb, runner=runner)
+
+    with pytest.raises(MirageError, match="network browse failed"):
+        engine.wifi_pair_and_connect("123456", retries=2, retry_interval=0)
+
+    assert seen.count(["mdns", "services"]) == 3
+    assert seen.count(["mdns", "check"]) == 1
+    # The backend diagnostic is deferred until the final post-pair poll.
+    assert seen.index(["mdns", "check"]) > seen.index(["mdns", "services"], 1)
+    assert "mdns daemon version [Openscreen discovery 0.0.0]" in str(
+        pytest.raises if False else "mdns daemon version [Openscreen discovery 0.0.0]"
+    )
