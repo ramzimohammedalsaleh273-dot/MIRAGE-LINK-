@@ -661,8 +661,8 @@ def test_wifi_pair_retry_defers_failed_mdns_backend_check_until_final_attempt(tm
             mdns_calls += 1
             if mdns_calls == 1:
                 return Result(
-                    "List of discovered mdns services\\n"
-                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\\n"
+                    "List of discovered mdns services\n"
+                    "adb-phone _adb-tls-pairing._tcp. 192.168.43.1:36127\n"
                 )
             return Result(stderr="mDNS discovery unavailable: network browse failed", returncode=1)
         if command[0] == "pair":
@@ -670,7 +670,7 @@ def test_wifi_pair_retry_defers_failed_mdns_backend_check_until_final_attempt(tm
         if command == ["mdns", "check"]:
             return Result("mdns daemon version [Openscreen discovery 0.0.0]")
         if command == ["devices", "-l"]:
-            return Result("List of devices attached\\n")
+            return Result("List of devices attached\n")
         return Result()
 
     monkeypatch.setattr("mirage_link.engine.time.sleep", lambda _seconds: None)
