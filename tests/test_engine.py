@@ -685,3 +685,124 @@ def test_wifi_pair_retry_defers_failed_mdns_backend_check_until_final_attempt(tm
     service_positions = [i for i, command in enumerate(seen) if command == ["mdns", "services"]]
     assert seen.index(["mdns", "check"]) > service_positions[-1]
     assert "mdns daemon version [Openscreen discovery 0.0.0]" in str(exc_info.value)
+
+
+def test_wifi_manual_connect_uses_android_dynamic_endpoint_without_pairing(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append((command, kwargs))
+        if command == ["connect", "192.168.43.1:42736"]:
+            return Result("connected to 192.168.43.1:42736")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\n"
+                "192.168.43.1:42736 device model:Phone\n"
+            )
+        return Result()
+
+    devices = Engine(adb_path=adb, runner=runner).wifi_connect_manual(
+        "192.168.43.1:42736"
+    )
+
+    assert [device.serial for device in devices] == ["192.168.43.1:42736"]
+    assert [item[0] for item in seen] == [
+        ["connect", "192.168.43.1:42736"],
+        ["devices", "-l"],
+    ]
+
+
+def test_wifi_manual_first_pair_uses_dynamic_endpoints_and_stdin_code(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append((command, kwargs))
+        if command[0] == "pair":
+            return Result("Successfully paired")
+        if command == ["connect", "192.168.43.1:42736"]:
+            return Result("connected to 192.168.43.1:42736")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\n"
+                "192.168.43.1:42736 device model:Phone\n"
+            )
+        return Result()
+
+    devices = Engine(adb_path=adb, runner=runner).wifi_connect_manual(
+        "192.168.43.1:42736",
+        pairing_endpoint="192.168.43.1:36127",
+        code="١٢٣٤٥٦",
+    )
+
+    assert [device.serial for device in devices] == ["192.168.43.1:42736"]
+    pair_call = next(item for item in seen if item[0][0] == "pair")
+    assert pair_call[0] == ["pair", "192.168.43.1:36127"]
+    assert pair_call[1]["input"] == "123456\n"
+    assert "123456" not in pair_call[0]
+    assert ["connect", "192.168.43.1:42736"] in [item[0] for item in seen]
+
+
+def test_wifi_manual_pair_rejects_different_phone_addresses_before_adb(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        seen.append(args[1:])
+        return Result("unexpected")
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="عنوان IP نفسه"):
+        engine.wifi_connect_manual(
+            "192.168.43.1:42736",
+            pairing_endpoint="192.168.43.2:36127",
+            code="123456",
+        )
+
+    assert seen == []
+
+
+@pytest.mark.parametrize(
+    ("pairing_endpoint", "code"),
+    [
+        ("192.168.43.1:36127", None),
+        (None, "123456"),
+    ],
+)
+def test_wifi_manual_pair_requires_endpoint_and_code_together(
+    tmp_path, pairing_endpoint, code
+):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+
+    def runner(args, **kwargs):
+        seen.append(args[1:])
+        return Result("unexpected")
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="عنوان الاقتران ورمز Android معاً"):
+        engine.wifi_connect_manual(
+            "192.168.43.1:42736",
+            pairing_endpoint=pairing_endpoint,
+            code=code,
+        )
+
+    assert seen == []
+
+
+def test_wifi_manual_connect_requires_selected_endpoint_to_be_ready(tmp_path):
+    adb = fake_tool(tmp_path, "adb")
+
+    def runner(args, **kwargs):
+        if args[1:] == ["connect", "192.168.43.1:42736"]:
+            return Result("connected to 192.168.43.1:42736")
+        if args[1:] == ["devices", "-l"]:
+            return Result("List of devices attached\n")
+        return Result()
+
+    engine = Engine(adb_path=adb, runner=runner)
+    with pytest.raises(MirageError, match="لم يظهر كجهاز جاهز"):
+        engine.wifi_connect_manual("192.168.43.1:42736")
