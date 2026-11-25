@@ -264,6 +264,46 @@ class Engine:
         ]
         return services, devices, errors
 
+    def wifi_connect_manual(
+        self,
+        connect_endpoint: str,
+        *,
+        pairing_endpoint: str | None = None,
+        code: str | None = None,
+    ) -> list[Device]:
+        """Use Android-displayed dynamic endpoints only as an explicit mDNS fallback."""
+        self._validate_endpoint(connect_endpoint)
+        if (pairing_endpoint is None) != (code is None):
+            raise MirageError(
+                "للاقتران الأول، أدخل عنوان الاقتران ورمز Android معاً؛ "
+                "أما الهاتف المقترن سابقاً فلا يحتاج إلى رمز."
+            )
+
+        if pairing_endpoint is not None:
+            self._validate_endpoint(pairing_endpoint)
+            pairing_host = pairing_endpoint.rsplit(":", 1)[0]
+            connect_host = connect_endpoint.rsplit(":", 1)[0]
+            if pairing_host != connect_host:
+                raise MirageError(
+                    "يجب أن يشير عنوانا الاقتران والاتصال إلى عنوان IP نفسه للهاتف."
+                )
+            self.pair(pairing_endpoint, code or "")
+
+        self._connect_discovered_endpoint(connect_endpoint)
+        devices = [
+            device
+            for device in self.devices()
+            if device.state == "device"
+            and device.serial == connect_endpoint
+            and self.is_wireless_device(device)
+        ]
+        if not devices:
+            raise MirageError(
+                "أرسل ADB أمر الاتصال إلى العنوان المحدد، لكن الهاتف لم يظهر كجهاز جاهز. "
+                "تحقق من عنوان الاتصال والمنفذ الظاهرين في Android ثم أعد المحاولة."
+            )
+        return devices
+
     def wifi_pair_and_connect(
         self, code: str, retries: int = 16, retry_interval: float = 0.5
     ) -> list[Device]:
