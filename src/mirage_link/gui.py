@@ -237,6 +237,77 @@ class MirageWindow:
         except MirageError as exc:
             messagebox.showerror("تعذر اكتشاف الهاتف", str(exc))
 
+    def _manual_wifi_fallback(self):
+        """Offer a user-confirmed dynamic-endpoint fallback only when mDNS discovery is unavailable."""
+        if not messagebox.askyesno(
+            "تعذر الاكتشاف التلقائي",
+            "لم يتمكن Android Debug Bridge من اكتشاف خدمات الهاتف تلقائياً عبر mDNS. "
+            "يمكنك إدخال العناوين الديناميكية الظاهرة في إعدادات Android كخيار احتياطي. "
+            "لن يُستخدم USB ولن تُفترض منافذ ثابتة. هل تريد المتابعة؟",
+            parent=self.root,
+        ):
+            self.status.set("لم يُستخدم الاتصال اليدوي الاحتياطي. يمكنك إعادة المحاولة بعد التحقق من الشبكة.")
+            return None
+
+        first_pair = messagebox.askyesnocancel(
+            "حالة الاقتران",
+            "هل هذا أول اقتران بين هذا الكمبيوتر والهاتف؟\n"
+            "نعم: سيُطلب عنوان الاقتران ورمز Android مرة واحدة.\n"
+            "لا: سيُستخدم الاقتران المحفوظ، ولن يُطلب الرمز.\n"
+            "إلغاء: العودة دون اتصال.",
+            parent=self.root,
+        )
+        if first_pair is None:
+            self.status.set("أُلغي الاتصال اليدوي الاحتياطي.")
+            return None
+
+        connect_endpoint = simpledialog.askstring(
+            "عنوان الاتصال",
+            "من الشاشة الرئيسية «تصحيح أخطاء USB اللاسلكي» في Android، "
+            "أدخل عنوان IP:PORT الظاهر للاتصال. المنفذ ديناميكي وليس ثابتاً:",
+            parent=self.root,
+        )
+        if not connect_endpoint:
+            self.status.set("أُلغي الاتصال اليدوي الاحتياطي.")
+            return None
+
+        pairing_endpoint = None
+        code = None
+        if first_pair:
+            pairing_endpoint = simpledialog.askstring(
+                "عنوان الاقتران",
+                "افتح «الإقران باستخدام رمز» على الهاتف، ثم أدخل عنوان IP:PORT "
+                "الظاهر في نافذة الاقتران. يجب أن يكون عنوان IP نفسه الظاهر في الشاشة الرئيسية:",
+                parent=self.root,
+            )
+            if not pairing_endpoint:
+                self.status.set("أُلغي الاقتران اليدوي.")
+                return None
+            code = simpledialog.askstring(
+                "رمز الاقتران الاحتياطي",
+                "أدخل رمز Android المؤقت. سيظهر مخفياً أثناء الكتابة:",
+                parent=self.root,
+                show="*",
+            )
+            if code is None:
+                self.status.set("أُلغي الاقتران اليدوي.")
+                return None
+
+        devices = self.engine.wifi_connect_manual(
+            connect_endpoint.strip(),
+            pairing_endpoint=pairing_endpoint.strip() if pairing_endpoint else None,
+            code=code,
+        )
+        self.wifi_device_map = {
+            f"{device.serial} | {device.details}".strip(" |"): device.serial
+            for device in devices
+        }
+        self.wifi_combo["values"] = list(self.wifi_device_map)
+        if len(devices) == 1:
+            self.wifi_combo.current(0)
+        self.status.set("تم تجهيز الهاتف للعرض عبر Wi-Fi باستخدام عنوان Android الديناميكي.")
+        return devices
+
     def start_wifi(self):
         """Discover Android 11+ wireless debugging, pair once, and stream without USB."""
         if self.process and self.process.poll() is None:
@@ -246,7 +317,7 @@ class MirageWindow:
             services, devices, errors = self._refresh_wireless_devices()
             if not devices and services["pairing"]:
                 code = simpledialog.askstring(
-                    "الاقتران الأول",
+                    "رمز الاقتران",
                     "أدخل رمز الاقتران الظاهر على الهاتف (سيظهر مخفياً أثناء الكتابة):",
                     parent=self.root,
                     show="*",
@@ -257,18 +328,10 @@ class MirageWindow:
                 devices = self.engine.wifi_pair_and_connect(code.strip())
                 services, devices, errors = self._refresh_wireless_devices()
 
-            if not devices:
-                message = (
-                    "لم يُكتشف الهاتف. تأكد أن الكمبيوتر متصل بنقطة اتصال الهاتف، "
-                    "وأن «تصحيح أخطاء USB اللاسلكي» مفعّل. في أول مرة افتح "
-                    "«الإقران باستخدام رمز» واترك النافذة مفتوحة ثم أعد المحاولة. "
-                    "إذا كان الاقتران محفوظاً، ارجع إلى شاشة «تصحيح أخطاء USB اللاسلكي» الرئيسية. "
-                    "قد يمنع جدار حماية Windows اكتشاف mDNS على الشبكة الخاصة."
-                )
-                if errors:
-                    message += f"\n\nتفاصيل ADB: {errors[-1][:300]}"
-                messagebox.showwarning("لم يظهر الهاتف بعد", message)
-                return
+            if not devices and not services["pairing"]:
+                devices = self._manual_wifi_fallback()
+                if not devices:
+                    return
 
             serial = self.wifi_device_map.get(self.wifi_device.get())
             if not serial and len(devices) == 1:
