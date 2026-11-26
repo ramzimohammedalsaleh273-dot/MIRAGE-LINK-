@@ -272,6 +272,13 @@ class Engine:
         code: str | None = None,
     ) -> list[Device]:
         """Use Android-displayed dynamic endpoints only as an explicit mDNS fallback."""
+        # Android settings may display digits using the Arabic or Persian
+        # numeral systems. Normalize only user-entered endpoints before
+        # validation and ADB invocation; discovered ADB output is unchanged.
+        if isinstance(connect_endpoint, str):
+            connect_endpoint = self._normalize_endpoint_digits(connect_endpoint)
+        if isinstance(pairing_endpoint, str):
+            pairing_endpoint = self._normalize_endpoint_digits(pairing_endpoint)
         self._validate_endpoint(connect_endpoint)
         if (pairing_endpoint is None) != (code is None):
             raise MirageError(
@@ -367,6 +374,15 @@ class Engine:
             raise MirageError("رقم المنفذ يجب أن يكون بين 1024 و65535.")
         args = (["-s", serial] if serial else []) + ["tcpip", str(port)]
         return self.command(args, timeout=30)
+
+    @staticmethod
+    def _normalize_endpoint_digits(endpoint: str) -> str:
+        """Normalize Arabic-Indic and Persian numerals in a user-entered endpoint."""
+        digit_translation = str.maketrans(
+            "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+            "01234567890123456789",
+        )
+        return endpoint.strip().translate(digit_translation)
 
     @staticmethod
     def _validate_endpoint(endpoint: str) -> None:

@@ -733,8 +733,8 @@ def test_wifi_manual_first_pair_uses_dynamic_endpoints_and_stdin_code(tmp_path):
         return Result()
 
     devices = Engine(adb_path=adb, runner=runner).wifi_connect_manual(
-        "192.168.43.1:42736",
-        pairing_endpoint="192.168.43.1:36127",
+        "١٩٢.١٦٨.٤٣.١:٤٢٧٣٦",
+        pairing_endpoint="١٩٢.١٦٨.٤٣.١:٣٦١٢٧",
         code="١٢٣٤٥٦",
     )
 
@@ -744,6 +744,35 @@ def test_wifi_manual_first_pair_uses_dynamic_endpoints_and_stdin_code(tmp_path):
     assert pair_call[1]["input"] == "123456\n"
     assert "123456" not in pair_call[0]
     assert ["connect", "192.168.43.1:42736"] in [item[0] for item in seen]
+
+
+@pytest.mark.parametrize("digits", ["٠١٢٣٤٥٦٧٨٩", "۰۱۲۳۴۵۶۷۸۹"])
+def test_wifi_manual_connect_normalizes_arabic_and_persian_endpoint_digits(
+    tmp_path, digits
+):
+    adb = fake_tool(tmp_path, "adb")
+    seen = []
+    endpoint = "192.168.43.1:42736".translate(str.maketrans("0123456789", digits))
+
+    def runner(args, **kwargs):
+        command = args[1:]
+        seen.append(command)
+        if command == ["connect", "192.168.43.1:42736"]:
+            return Result("connected to 192.168.43.1:42736")
+        if command == ["devices", "-l"]:
+            return Result(
+                "List of devices attached\\n"
+                "192.168.43.1:42736 device model:Phone\\n"
+            )
+        return Result()
+
+    devices = Engine(adb_path=adb, runner=runner).wifi_connect_manual(endpoint)
+
+    assert [device.serial for device in devices] == ["192.168.43.1:42736"]
+    assert seen == [
+        ["connect", "192.168.43.1:42736"],
+        ["devices", "-l"],
+    ]
 
 
 def test_wifi_manual_pair_rejects_different_phone_addresses_before_adb(tmp_path):
