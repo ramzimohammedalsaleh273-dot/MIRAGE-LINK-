@@ -761,8 +761,8 @@ def test_wifi_manual_connect_normalizes_arabic_and_persian_endpoint_digits(
             return Result("connected to 192.168.43.1:42736")
         if command == ["devices", "-l"]:
             return Result(
-                "List of devices attached\\n"
-                "192.168.43.1:42736 device model:Phone\\n"
+                "List of devices attached\n"
+                "192.168.43.1:42736 device model:Phone\n"
             )
         return Result()
 
