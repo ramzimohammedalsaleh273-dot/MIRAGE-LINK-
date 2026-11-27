@@ -377,12 +377,16 @@ class Engine:
 
     @staticmethod
     def _normalize_endpoint_digits(endpoint: str) -> str:
-        """Normalize Arabic-Indic and Persian numerals in a user-entered endpoint."""
+        """Normalize localized numerals and invisible RTL marks in a copied endpoint."""
         digit_translation = str.maketrans(
             "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
             "01234567890123456789",
         )
-        return endpoint.strip().translate(digit_translation)
+        # Arabic/RTL interfaces may surround copied numbers with directional
+        # formatting marks. Remove only those invisible controls; the strict
+        # IPv4:port validator still checks every visible character.
+        bidi_controls = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+        return endpoint.translate(str.maketrans("", "", bidi_controls)).strip().translate(digit_translation)
 
     @staticmethod
     def _validate_endpoint(endpoint: str) -> None:

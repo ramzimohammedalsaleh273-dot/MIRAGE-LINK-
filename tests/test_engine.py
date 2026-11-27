@@ -752,7 +752,7 @@ def test_wifi_manual_connect_normalizes_arabic_and_persian_endpoint_digits(
 ):
     adb = fake_tool(tmp_path, "adb")
     seen = []
-    endpoint = "192.168.43.1:42736".translate(str.maketrans("0123456789", digits))
+    endpoint = "\u200f" + "192.168.43.1:42736".translate(str.maketrans("0123456789", digits)) + "\u200e"
 
     def runner(args, **kwargs):
         command = args[1:]
