@@ -67,6 +67,8 @@ def test_pair_validates_endpoint_and_code(tmp_path):
     ("١٢٣٤٥٦", "123456"),
     ("۱۲۳۴۵۶", "123456"),
     (" ١٢٣٤٥٦ ", "123456"),
+    ("\u200f١٢٣٤٥٦\u200e", "123456"),
+    ("\u2067۱۲۳۴۵۶\u2069", "123456"),
 ])
 def test_pair_normalizes_arabic_and_persian_digits(tmp_path, code, expected):
     adb = fake_tool(tmp_path, "adb")

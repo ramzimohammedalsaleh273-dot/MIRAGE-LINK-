@@ -121,11 +121,11 @@ class Engine:
 
     def pair(self, endpoint: str, code: str) -> str:
         self._validate_endpoint(endpoint)
-        digit_translation = str.maketrans(
-            "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
-            "01234567890123456789",
+        normalized_code = (
+            self._normalize_localized_digits(code).strip()
+            if isinstance(code, str)
+            else ""
         )
-        normalized_code = code.translate(digit_translation).strip() if isinstance(code, str) else ""
         if not re.fullmatch(r"[0-9]{4,12}", normalized_code):
             raise MirageError("رمز الاقتران يجب أن يكون من 4 إلى 12 رقماً كما يظهر على الهاتف.")
         # ADB supports an interactive pairing prompt. Send the temporary code
@@ -276,9 +276,9 @@ class Engine:
         # numeral systems. Normalize only user-entered endpoints before
         # validation and ADB invocation; discovered ADB output is unchanged.
         if isinstance(connect_endpoint, str):
-            connect_endpoint = self._normalize_endpoint_digits(connect_endpoint)
+            connect_endpoint = self._normalize_localized_digits(connect_endpoint)
         if isinstance(pairing_endpoint, str):
-            pairing_endpoint = self._normalize_endpoint_digits(pairing_endpoint)
+            pairing_endpoint = self._normalize_localized_digits(pairing_endpoint)
         self._validate_endpoint(connect_endpoint)
         if (pairing_endpoint is None) != (code is None):
             raise MirageError(
@@ -376,17 +376,17 @@ class Engine:
         return self.command(args, timeout=30)
 
     @staticmethod
-    def _normalize_endpoint_digits(endpoint: str) -> str:
-        """Normalize localized numerals and invisible RTL marks in a copied endpoint."""
+    def _normalize_localized_digits(value: str) -> str:
+        """Normalize localized numerals and invisible RTL marks in copied text."""
         digit_translation = str.maketrans(
             "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
             "01234567890123456789",
         )
-        # Arabic/RTL interfaces may surround copied numbers with directional
-        # formatting marks. Remove only those invisible controls; the strict
-        # IPv4:port validator still checks every visible character.
+        # Arabic/RTL interfaces may surround copied endpoints or pairing codes
+        # with directional formatting marks. Remove only these known controls;
+        # the endpoint validator and pairing-code format check remain strict.
         bidi_controls = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
-        return endpoint.translate(str.maketrans("", "", bidi_controls)).strip().translate(digit_translation)
+        return value.translate(str.maketrans("", "", bidi_controls)).strip().translate(digit_translation)
 
     @staticmethod
     def _validate_endpoint(endpoint: str) -> None:
